@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VQA Surveillance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<style>
+  :root {
+    --bg: #f5f5f3;
+    --surface: #ffffff;
+    --border: #e4e4e0;
+    --border-strong: #d0d0cb;
+    --text: #1a1a18;
+    --text-2: #6b6b65;
+    --text-3: #a8a8a2;
+    --accent: #1a1a18;
+    --red: #d94f4f;
+    --green: #3a9e6f;
+    --blue: #3b7dd8;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 400;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 60px;
+  }
+
+  header {
+    width: 100%;
+    max-width: 680px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+  }
+
+  header h1 {
+    font-family: 'DM Mono', monospace;
+    font-weight: 400;
+    font-size: 0.9rem;
+    color: var(--text);
+    letter-spacing: 0.05em;
+  }
+
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--border-strong);
+    margin-left: auto;
+    transition: all 0.4s;
+    flex-shrink: 0;
+  }
+  .dot.online  { background: var(--green); }
+  .dot.error   { background: var(--red); }
+  .dot.running { background: var(--blue); animation: blink 1.4s ease-in-out infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .tabs {
+    width: 100%;
+    max-width: 680px;
+    display: flex;
+    gap: 2px;
+    margin-bottom: 20px;
+    background: var(--border);
+    padding: 2px;
+    border-radius: 8px;
+  }
+
+  .tab-btn {
+    flex: 1;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-2);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.02em;
+  }
+  .tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.5); }
+  .tab-btn.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+
+  .tab-panel { display: none; width: 100%; max-width: 680px; }
+  .tab-panel.active { display: block; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 540px) { .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface);
+    border: none;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .card.full { grid-column: 1 / -1; }
+
+  #image-container {
+    width: 100%;
+    aspect-ratio: 4/3;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+  #image-container img { width: 100%; height: 100%; object-fit: cover; display: none; }
+  .img-placeholder {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-3);
+    letter-spacing: 0.06em;
+  }
+  #alarm-flash {
+    position: absolute; inset: 0;
+    background: var(--red);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.1s;
+  }
+
+  .controls { display: flex; }
+
+  .btn {
+    flex: 1;
+    padding: 12px 10px;
+    background: transparent;
+    border: none;
+    color: var(--text-2);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.02em;
+  }
+  .btn + .btn { border-left: none; }
+  .btn:hover { background: var(--bg); color: var(--text); }
+  .btn:disabled { color: var(--text-3); cursor: not-allowed; }
+  .btn.start { color: var(--green); }
+  .btn.stop  { color: var(--red); }
+
+  #answers-bar {
+    padding: 8px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 0;
+  }
+
+  .answer-chip {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+  }
+  .answer-chip .aq {
+    color: var(--text-3);
+    font-size: 0.68rem;
+    flex-shrink: 0;
+  }
+  .answer-chip .aa {
+    color: var(--text);
+    font-size: 0.82rem;
+  }
+  .answer-chip.match .aa    { color: var(--red); }
+  .answer-chip.no-match .aa { color: var(--green); }
+  .answer-chip.followup .aa { color: var(--blue); }
+  .answer-chip.pending .aa  { color: var(--text-3); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  #followup-row {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px 12px;
+  }
+  #followup-row.visible { display: flex; }
+
+  #followup-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  #followup-input:focus { border-color: var(--accent); }
+  #followup-input::placeholder { color: var(--text-3); }
+
+  #followup-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 12px;
+    color: var(--text-2);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  #followup-btn:hover { border-color: var(--accent); color: var(--text); }
+  #followup-btn:disabled { color: var(--text-3); cursor: not-allowed; }
+
+  #inline-stats {
+    padding: 8px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-3);
+    letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .stat-sep { color: var(--border-strong); }
+
+  #alarm-indicator {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    border-radius: 4px;
+    padding: 1px 6px;
+    transition: all 0.3s;
+  }
+  #alarm-indicator.alarm-off  { color: var(--text-3); }
+  #alarm-indicator.alarm-on   { color: var(--red); animation: alarm-blink 0.8s ease-in-out infinite; }
+  @keyframes alarm-blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  #questions-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+
+  .question-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .question-row input[type="text"] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .question-row input[type="text"]:not(.match-word):not(.cmd-input) { flex: 1; }
+  .question-row input:focus { border-color: var(--accent); }
+  .question-row input.match-word { max-width: 90px; font-family: 'DM Mono', monospace; font-size: 0.78rem; }
+  .question-row input.cmd-input  { flex-basis: 100%; max-width: none; font-family: 'DM Mono', monospace; font-size: 0.78rem; }
+
+  .del-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-3);
+    font-size: 0.75rem;
+    padding: 5px 9px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.15s;
+  }
+  .del-btn:hover { border-color: var(--red); color: var(--red); }
+
+  .cfg-section {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--text-3);
+    letter-spacing: 0.1em;
+    padding: 14px 16px 6px;
+    text-transform: uppercase;
+  }
+
+  .cfg-row {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    gap: 12px;
+  }
+
+  .cfg-label {
+    font-size: 0.82rem;
+    color: var(--text-2);
+    min-width: 150px;
+  }
+
+  .cfg-row input[type="text"],
+  .cfg-row input[type="number"] {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .cfg-row input:focus { border-color: var(--accent); }
+  .cfg-row input[type="checkbox"] {
+    width: 16px; height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  /* GALERIE */
+  .gallery-day-header {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text-3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 16px 16px 8px;
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+  }
+  .gallery-day-header:first-child { border-top: none; margin-top: 0; }
+
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 0 16px 16px;
+  }
+  @media (max-width: 400px) { .gallery-grid { grid-template-columns: 1fr; } }
+
+  .gallery-item {
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bg);
+    position: relative;
+    cursor: pointer;
+  }
+  .gallery-item img {
+    width: 100%;
+    aspect-ratio: 4/3;
+    object-fit: cover;
+    display: block;
+  }
+  .gallery-meta {
+    padding: 6px 8px;
+  }
+  .gallery-time {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--text-3);
+    letter-spacing: 0.04em;
+    margin-bottom: 3px;
+  }
+  .gallery-qa {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.72rem;
+    color: var(--text-2);
+    line-height: 1.4;
+  }
+  .gallery-qa .qa-q { color: var(--text-3); }
+  .gallery-qa .qa-a { color: var(--red); font-weight: 500; }
+
+  .gallery-item .del-overlay {
+    position: absolute;
+    top: 6px; right: 6px;
+    background: rgba(0,0,0,0.45);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    padding: 3px 7px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .gallery-item:hover .del-overlay { opacity: 1; }
+
+  #gallery-empty {
+    padding: 32px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-3);
+    text-align: center;
+    letter-spacing: 0.06em;
+  }
+
+  .gallery-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px 0;
+  }
+
+  #gallery-reload {
+    background: transparent;
+    border: none;
+    color: var(--text-3);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    cursor: pointer;
+    letter-spacing: 0.06em;
+    transition: color 0.15s;
+  }
+  #gallery-reload:hover { color: var(--text); }
+
+  .gallery-section-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--text-3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 14px 16px 6px;
+  }
+
+  /* LIGHTBOX */
+  #lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 100;
+    align-items: center;
+    justify-content: flex-start;
+    flex-direction: column;
+    gap: 12px;
+    
+    padding: 48px 0 24px;
+  }
+  #lightbox.visible { display: flex; }
+  #lightbox img {
+    max-width: 95vw;
+    max-height: 55vh;
+    border-radius: 8px;
+    object-fit: contain;
+    cursor: pointer;
+  }
+  #lightbox-meta {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 0.04em;
+    text-align: center;
+    padding: 0 24px;
+    line-height: 1.6;
+  }
+  #lightbox-close {
+    position: absolute;
+    top: 16px; right: 20px;
+    background: transparent;
+    border: none;
+    color: rgba(255,255,255,0.6);
+    font-size: 1.4rem;
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  #lightbox-followup {
+    position: fixed;
+    bottom: 16px;
+    left: 0;
+    right: 0;
+    position: fixed;
+    bottom: 16px;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: 480px;
+    padding: 0 16px;
+    display: none;
+  }
+  #lightbox-followup.visible { display: block; }
+  #lightbox-answers {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+  .lb-chip {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+  }
+  .lb-chip .aq { color: rgba(255,255,255,0.4); flex-shrink: 0; }
+  .lb-chip .aa { color: rgba(255,255,255,0.9); }
+  .lb-chip.pending .aa { color: rgba(255,255,255,0.3); animation: pulse 1.2s ease-in-out infinite; }
+  #lightbox-input-row {
+    display: flex;
+    gap: 8px;
+  }
+  #lightbox-input {
+    flex: 1;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    padding: 7px 10px;
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    outline: none;
+  }
+  #lightbox-input::placeholder { color: rgba(255,255,255,0.3); }
+  #lightbox-input:focus { border-color: rgba(255,255,255,0.5); }
+  #lightbox-input-row button {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    padding: 7px 12px;
+    color: rgba(255,255,255,0.7);
+    font-size: 0.82rem;
+    cursor: pointer;
+  }
+  #lightbox-input-row button:hover { background: rgba(255,255,255,0.2); }
+
+  .spinner {
+    display: inline-block; width: 10px; height: 10px;
+    border: 2px solid var(--border); border-top-color: var(--text-2);
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+</style>
+</head>
+<body>
+
+<header>
+  <h1>vqa / surveillance</h1>
+  <div class="dot" id="status-dot"></div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('monitor', this)">Monitor</button>
+  <button class="tab-btn" onclick="switchTab('settings', this)">Einstellungen</button>
+  <button class="tab-btn" onclick="switchTab('gallery', this); loadGallery()">Galerie</button>
+</div>
+
+<!-- MONITOR -->
+<div class="tab-panel active" id="tab-monitor">
+  <div class="grid">
+    <div class="card full">
+      <div id="image-container">
+        <span class="img-placeholder" id="placeholder">Kein Bild</span>
+        <img id="photo" alt="">
+        <div id="alarm-flash"></div>
+      </div>
+      <div class="controls">
+        <button class="btn" id="snap-btn" onclick="captureAndAsk()">Foto aufnehmen</button>
+        <button class="btn start" id="loop-btn" onclick="toggleLoop()">Loop starten</button>
+      </div>
+      <div id="answers-bar"></div>
+      <div id="followup-row">
+        <input type="text" id="followup-input" placeholder="Folgefrage zum Bild...">
+        <button id="followup-btn" onclick="askFollowup()">→</button>
+      </div>
+      <div id="inline-stats">
+        <span id="stat-total">0</span> Aufnahmen
+        <span class="stat-sep">·</span>
+        <span id="stat-saved">0</span> gespeichert
+        <span class="stat-sep">·</span>
+        <span id="stat-runtime">00:00:00</span>
+        <span class="stat-sep">·</span>
+        <span id="stat-last">—</span>
+        <span class="stat-sep">·</span>
+        <span id="alarm-indicator" class="alarm-off">
+          <span id="stat-alarms">0</span> Alarme
+        </span>
+      </div>
+      <div id="questions-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- EINSTELLUNGEN -->
+<div class="tab-panel" id="tab-settings">
+  <div class="card">
+    <div class="cfg-section">Loop</div>
+    <div class="cfg-row">
+      <span class="cfg-label">Intervall (Sekunden)</span>
+      <input type="number" id="cfg-interval" value="5" min="1" max="3600">
+    </div>
+    <div class="cfg-section">Alarm</div>
+    <div class="cfg-row">
+      <span class="cfg-label">Alarm-Ton</span>
+      <input type="checkbox" id="cfg-sound" checked>
+    </div>
+    <div class="cfg-row">
+      <span class="cfg-label">Sounddatei</span>
+      <input type="text" id="cfg-soundfile" value="default_alarm_sound.wav">
+    </div>
+    <div class="cfg-row">
+      <span class="cfg-label">Benachrichtigung</span>
+      <input type="checkbox" id="cfg-notify" checked>
+    </div>
+    <div class="cfg-row">
+      <span class="cfg-label">Bild speichern (Alarm)</span>
+      <input type="checkbox" id="cfg-save" checked>
+    </div>
+    <div class="cfg-section">Aufnahmen</div>
+    <div class="cfg-row">
+      <span class="cfg-label">Alle Aufnahmen speichern</span>
+      <input type="checkbox" id="cfg-save-all">
+    </div>
+    <div class="cfg-section">Server</div>
+    <div class="cfg-row">
+      <span class="cfg-label">Server URL</span>
+      <input type="text" id="cfg-server" value="http://127.0.0.1:5666">
+    </div>
+    <div class="cfg-section">Log</div>
+    <div class="cfg-row">
+      <span class="cfg-label">Max. Log-Zeilen</span>
+      <input type="number" id="cfg-maxlog" value="100" min="10" max="1000">
+    </div>
+  </div>
+</div>
+
+<!-- GALERIE -->
+<div class="tab-panel" id="tab-gallery">
+  <div class="card full">
+    <div class="gallery-toolbar">
+      <button id="gallery-reload" onclick="loadGallery()">↺ neu laden</button>
+    </div>
+    <div class="gallery-section-title">Alarme</div>
+    <div id="gallery-container"></div>
+    <div id="gallery-empty" style="display:none">Keine gespeicherten Alarm-Bilder</div>
+    <div class="gallery-section-title" style="margin-top:24px">Aufnahmen</div>
+    <div id="captures-container"></div>
+    <div id="captures-empty" style="display:none">Keine Aufnahmen vorhanden</div>
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div id="lightbox" onclick="closeLightbox()">
+  <button id="lightbox-close" onclick="closeLightbox()">×</button>
+  <img id="lightbox-img" src="" alt="" onclick="event.stopPropagation(); toggleLightboxFollowup()">
+  <div id="lightbox-meta"></div>
+  <div id="lightbox-followup" onclick="event.stopPropagation()">
+    <div id="lightbox-answers"></div>
+    <div id="lightbox-input-row">
+      <input type="text" id="lightbox-input" placeholder="Folgefrage zum Bild..."
+        onkeydown="if(event.key==='Enter') lightboxAsk()">
+      <button onclick="lightboxAsk()">→</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let socket = null;
+  let loopRunning = false;
+  let startTime = null;
+  let runtimeTimer = null;
+  let statTotal = 0, statAlarms = 0, statSaved = 0;
+  let hasImage = false;
+  let pendingChips = {};
+
+  function switchTab(name, el) {
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.getElementById("tab-" + name).classList.add("active");
+    el.classList.add("active");
+  }
+
+  function server() { return document.getElementById("cfg-server").value.trim(); }
+
+  function addQuestion(q = "", m = "yes", cmd = "") {
+    const list = document.getElementById("questions-list");
+    const row = document.createElement("div");
+    row.className = "question-row";
+    row.innerHTML =
+      '<input type="text" placeholder="What do you see?" value="' + q + '">' +
+      '<input type="text" class="match-word" placeholder="match" value="' + m + '">' +
+      '<input type="text" class="cmd-input" placeholder="cmd bei Match" value="' + cmd + '">' +
+      '<button class="del-btn" onclick="this.parentElement.remove()">×</button>';
+    list.appendChild(row);
+  }
+
+  function getQuestions() {
+    const result = [];
+    document.querySelectorAll(".question-row").forEach(row => {
+      const inputs = row.querySelectorAll("input[type='text']");
+      const q   = inputs[0].value.trim();
+      const m   = inputs[1].value.trim() || "";
+      const cmd = inputs[2].value.trim() || "";
+      if (q) result.push({ question: q, match: m, cmd: cmd });
+    });
+    return result;
+  }
+
+  function updateStats() {
+    document.getElementById("stat-total").textContent  = statTotal;
+    document.getElementById("stat-alarms").textContent = statAlarms;
+    document.getElementById("stat-saved").textContent  = statSaved;
+    const indicator = document.getElementById("alarm-indicator");
+    indicator.className = statAlarms > 0 ? "alarm-on" : "alarm-off";
+  }
+
+  function applyStats(stats) {
+    if (!stats) return;
+    statTotal  = stats.total  || 0;
+    statAlarms = stats.alarms || 0;
+    statSaved  = stats.saved  || 0;
+    updateStats();
+  }
+
+  function startRuntime() {
+    startTime = Date.now();
+    if (runtimeTimer) clearInterval(runtimeTimer);
+    runtimeTimer = setInterval(() => {
+      const s   = Math.floor((Date.now() - startTime) / 1000);
+      const h   = String(Math.floor(s / 3600)).padStart(2, "0");
+      const m   = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+      const sec = String(s % 60).padStart(2, "0");
+      document.getElementById("stat-runtime").textContent = h + ":" + m + ":" + sec;
+    }, 1000);
+  }
+
+  function stopRuntime() { clearInterval(runtimeTimer); }
+
+  function flashAlarm() {
+    const el = document.getElementById("alarm-flash");
+    el.style.opacity = "0.3";
+    setTimeout(() => { el.style.opacity = "0"; }, 300);
+  }
+
+  function notify(title, body) {
+    if (!document.getElementById("cfg-notify").checked) return;
+    if (typeof Notification === "undefined") return;
+    if (Notification.permission === "granted") new Notification(title, { body });
+    else if (Notification.permission !== "denied") {
+      Notification.requestPermission().then(p => { if (p === "granted") new Notification(title, { body }); });
+    }
+  }
+
+  async function checkHealth() {
+    const dot = document.getElementById("status-dot");
+    try {
+      const r = await fetch(server() + "/health");
+      dot.className = r.ok ? (loopRunning ? "dot running" : "dot online") : "dot error";
+    } catch { dot.className = "dot error"; }
+  }
+
+  async function capturePhoto() {
+    const r = await fetch(server() + "/photo", { method: "POST" });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    showLatestImage();
+  }
+
+  function showLatestImage() {
+    const img = document.getElementById("photo");
+    img.src = server() + "/image?t=" + Date.now();
+    img.style.display = "block";
+    document.getElementById("placeholder").style.display = "none";
+    hasImage = true;
+  }
+
+  async function askServer(question) {
+    const r = await fetch(server() + "/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question })
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    return data.answer;
+  }
+
+  function addPendingChip(question, extraClass) {
+    const bar = document.getElementById("answers-bar");
+    const chip = document.createElement("div");
+    chip.className = "answer-chip pending " + (extraClass || "");
+    chip.innerHTML = '<span class="aq">' + question + '</span><span class="aa">···</span>';
+    bar.appendChild(chip);
+    return chip;
+  }
+
+  function resolveChip(chip, answer, finalClass) {
+    chip.className = "answer-chip " + finalClass;
+    chip.querySelector(".aa").textContent = answer;
+  }
+
+  async function saveAlarmImage(question, answer) {
+    try {
+      const r = await fetch(server() + "/save_alarm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, answer })
+      });
+      const data = await r.json();
+      if (data.file) { statSaved++; updateStats(); }
+    } catch (e) {}
+  }
+
+  async function askFollowup() {
+    const input = document.getElementById("followup-input");
+    const btn   = document.getElementById("followup-btn");
+    const q = input.value.trim();
+    if (!q || !hasImage) return;
+    btn.disabled   = true;
+    input.disabled = true;
+    const chip = addPendingChip(q, "followup");
+    input.value = "";
+    try {
+      const answer = await askServer(q);
+      resolveChip(chip, answer, "followup");
+    } catch (e) {
+      resolveChip(chip, "Fehler", "followup");
+    }
+    btn.disabled   = false;
+    input.disabled = false;
+    input.focus();
+  }
+
+  async function captureAndAsk() {
+    if (loopRunning) return;
+    const btn = document.getElementById("snap-btn");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Läuft...';
+    const questions = getQuestions();
+    if (questions.length === 0) {
+      btn.disabled = false;
+      btn.textContent = "Foto aufnehmen";
+      return;
+    }
+    document.getElementById("answers-bar").innerHTML = "";
+    try {
+      await capturePhoto();
+      document.getElementById("followup-row").classList.add("visible");
+      statTotal++;
+      updateStats();
+      for (const { question, match, cmd } of questions) {
+        const chip = addPendingChip(question);
+        const answer = await askServer(question);
+        const matched = match && answer.includes(match);
+        resolveChip(chip, answer, matched ? "match" : "no-match");
+        if (matched) {
+          statAlarms++;
+          updateStats();
+          flashAlarm();
+          notify("Alarm", "Q: " + question + "\nA: " + answer);
+          if (document.getElementById("cfg-save").checked) await saveAlarmImage(question, answer);
+          if (document.getElementById("cfg-sound").checked) {
+            try {
+              await fetch(server() + "/play_sound", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ file: document.getElementById("cfg-soundfile").value.trim() })
+              });
+            } catch {}
+          }
+          if (cmd) {
+            try {
+              await fetch(server() + "/run_cmd", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ cmd })
+              });
+            } catch {}
+          }
+        }
+      }
+      const now = new Date();
+      document.getElementById("stat-last").textContent =
+        String(now.getHours()).padStart(2, "0") + ":" +
+        String(now.getMinutes()).padStart(2, "0") + ":" +
+        String(now.getSeconds()).padStart(2, "0");
+    } catch (e) {
+      const chip = addPendingChip("Fehler");
+      resolveChip(chip, e.message, "match");
+    }
+    btn.disabled = false;
+    btn.textContent = "Foto aufnehmen";
+  }
+
+  document.getElementById("followup-input").addEventListener("keydown", e => {
+    if (e.key === "Enter") askFollowup();
+  });
+
+  // SOCKET.IO
+  function connectSocket() {
+    if (socket) return;
+    socket = io(server(), { transports: ["websocket", "polling"] });
+
+    socket.on("connect", () => {
+      document.getElementById("status-dot").className = loopRunning ? "dot running" : "dot online";
+    });
+    socket.on("disconnect", () => {
+      document.getElementById("status-dot").className = "dot error";
+    });
+
+    socket.on("loop_state", (data) => {
+      loopRunning = !!data.running;
+      const btn = document.getElementById("loop-btn");
+      btn.textContent = loopRunning ? "Loop stoppen" : "Loop starten";
+      btn.className   = loopRunning ? "btn stop" : "btn start";
+      document.getElementById("status-dot").className = loopRunning ? "dot running" : "dot online";
+      applyStats(data.stats);
+      if (loopRunning) startRuntime(); else stopRuntime();
+    });
+
+    socket.on("loop_tick", (data) => {
+      if (data.phase === "capture_done") {
+        showLatestImage();
+        document.getElementById("answers-bar").innerHTML = "";
+        pendingChips = {};
+        applyStats(data.stats);
+        const now = new Date();
+        document.getElementById("stat-last").textContent =
+          String(now.getHours()).padStart(2, "0") + ":" +
+          String(now.getMinutes()).padStart(2, "0") + ":" +
+          String(now.getSeconds()).padStart(2, "0");
+      } else if (data.phase === "error") {
+        const chip = addPendingChip("Fehler");
+        resolveChip(chip, data.message || "Unbekannt", "match");
+      }
+    });
+
+    socket.on("loop_answer", (data) => {
+      const r = data.result;
+      const chip = addPendingChip(r.question);
+      resolveChip(chip, r.answer, r.matched ? "match" : "no-match");
+      if (r.matched) {
+        flashAlarm();
+        notify("Alarm", "Q: " + r.question + "\nA: " + r.answer);
+      }
+      applyStats(data.stats);
+    });
+  }
+
+  function toggleLoop() { loopRunning ? stopLoop() : startLoop(); }
+
+  async function startLoop() {
+    const questions = getQuestions();
+    if (questions.length === 0) return;
+    const payload = {
+      questions: questions,
+      interval:  parseInt(document.getElementById("cfg-interval").value) || 5,
+      save:      document.getElementById("cfg-save").checked,
+      save_all:  document.getElementById("cfg-save-all").checked,
+      sound:     document.getElementById("cfg-sound").checked,
+      soundfile: document.getElementById("cfg-soundfile").value.trim(),
+    };
+    try {
+      const r = await fetch(server() + "/loop/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await r.json();
+      if (data.error) {
+        alert("Loop-Start fehlgeschlagen: " + data.error);
+        return;
+      }
+      document.getElementById("answers-bar").innerHTML = "";
+      document.getElementById("followup-row").classList.remove("visible");
+    } catch (e) {
+      alert("Loop-Start fehlgeschlagen: " + e.message);
+    }
+  }
+
+  async function stopLoop() {
+    try {
+      await fetch(server() + "/loop/stop", { method: "POST" });
+      document.getElementById("followup-row").classList.add("visible");
+    } catch (e) {}
+  }
+
+  // GALERIE
+  function formatDay(ts) {
+    if (!ts) return "Unbekannt";
+    const d = new Date(ts);
+    return d.toLocaleDateString("de-DE", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  }
+
+  function formatTime(ts) {
+    if (!ts) return "";
+    const d = new Date(ts);
+    return String(d.getHours()).padStart(2, "0") + ":" +
+           String(d.getMinutes()).padStart(2, "0") + ":" +
+           String(d.getSeconds()).padStart(2, "0");
+  }
+
+  function dayKey(ts) {
+    if (!ts) return "unbekannt";
+    return new Date(ts).toISOString().slice(0, 10);
+  }
+
+  function buildDayGroups(container, items, buildItem) {
+    let currentDay = null;
+    let grid = null;
+    for (const item of items) {
+      const dk = dayKey(item._ts || "");
+      if (dk !== currentDay) {
+        currentDay = dk;
+        const header = document.createElement("div");
+        header.className = "gallery-day-header";
+        header.textContent = item._ts ? formatDay(item._ts) : "Unbekannt";
+        container.appendChild(header);
+        grid = document.createElement("div");
+        grid.className = "gallery-grid";
+        container.appendChild(grid);
+      }
+      grid.appendChild(buildItem(item));
+    }
+  }
+
+  async function loadGallery() {
+    await Promise.all([loadAlarms(), loadCaptures()]);
+  }
+
+  async function loadAlarms() {
+    const container = document.getElementById("gallery-container");
+    const empty     = document.getElementById("gallery-empty");
+    container.innerHTML = '<div style="padding:16px;font-family:\'DM Mono\',monospace;font-size:0.72rem;color:var(--text-3)">Lade...</div>';
+    empty.style.display = "none";
+    try {
+      const r    = await fetch(server() + "/alarms");
+      const data = await r.json();
+      container.innerHTML = "";
+      const alarms = (data.alarms || []).reverse().map(a => ({ ...a, _ts: a.timestamp }));
+      if (alarms.length === 0) { empty.style.display = "block"; return; }
+      buildDayGroups(container, alarms, (alarm) => {
+        const url      = server() + "/alarms/" + encodeURIComponent(alarm.file);
+        const timeStr  = formatTime(alarm.timestamp);
+        const question = alarm.question || "";
+        const answer   = alarm.answer || "";
+        const safeFile = alarm.file.replace(/'/g, "");
+        const item     = document.createElement("div");
+        item.className = "gallery-item";
+        item.innerHTML =
+          '<img src="' + url + '" loading="lazy" onclick="openLightbox(\'' + url + '\', \'' +
+            timeStr.replace(/'/g, "") + '\', \'' +
+            question.replace(/'/g, "").replace(/"/g, "") + '\', \'' +
+            answer.replace(/'/g, "").replace(/"/g, "") + '\', \'' +
+            alarm.file.replace(/'/g, "") + '\')">' +
+          '<div class="gallery-meta">' +
+            '<div class="gallery-time">' + timeStr + '</div>' +
+            (question ? '<div class="gallery-qa"><span class="qa-q">' + question + '</span> → <span class="qa-a">' + answer + '</span></div>' : '') +
+          '</div>' +
+          '<button class="del-overlay" onclick="deleteAlarm(\'' + alarm.file + '\', this)">×</button>';
+        return item;
+      });
+    } catch (e) {
+      container.innerHTML = '<div style="padding:16px;font-family:\'DM Mono\',monospace;font-size:0.72rem;color:var(--red)">Fehler beim Laden</div>';
+    }
+  }
+
+  async function loadCaptures() {
+    const container = document.getElementById("captures-container");
+    const empty     = document.getElementById("captures-empty");
+    container.innerHTML = '<div style="padding:16px;font-family:\'DM Mono\',monospace;font-size:0.72rem;color:var(--text-3)">Lade...</div>';
+    empty.style.display = "none";
+    try {
+      const r    = await fetch(server() + "/captures");
+      const data = await r.json();
+      container.innerHTML = "";
+      const files = (data.files || []);
+      if (files.length === 0) { empty.style.display = "block"; return; }
+      // Timestamp aus Dateiname: 00001_20260510_001503.jpg
+      const items = files.map(f => {
+        let ts = null;
+        const parts = f.replace(".jpg", "").split("_");
+        if (parts.length >= 3) {
+          try {
+            const d = parts[1], t = parts[2];
+            ts = new Date(
+              d.slice(0,4) + "-" + d.slice(4,6) + "-" + d.slice(6,8) + "T" +
+              t.slice(0,2) + ":" + t.slice(2,4) + ":" + t.slice(4,6)
+            ).toISOString();
+          } catch {}
+        }
+        return { file: f, _ts: ts };
+      });
+      buildDayGroups(container, items, (capture) => {
+        const url     = server() + "/captures/" + encodeURIComponent(capture.file);
+        const timeStr = formatTime(capture._ts);
+        const item    = document.createElement("div");
+        item.className = "gallery-item";
+        item.innerHTML =
+          '<img src="' + url + '" loading="lazy" onclick="openLightbox(\'' + url + '\', \'' + timeStr + '\', \'\', \'\')">' +
+          '<div class="gallery-meta"><div class="gallery-time">' + timeStr + '</div></div>';
+        return item;
+      });
+    } catch (e) {
+      container.innerHTML = '<div style="padding:16px;font-family:\'DM Mono\',monospace;font-size:0.72rem;color:var(--red)">Fehler beim Laden</div>';
+    }
+  }
+
+  async function deleteAlarm(filename, btn) {
+    btn.textContent = "…";
+    try {
+      const r    = await fetch(server() + "/alarms/" + filename, { method: "DELETE" });
+      const data = await r.json();
+      if (data.status === "ok") {
+        const item = btn.closest(".gallery-item");
+        const grid = item.parentElement;
+        item.remove();
+        if (grid && grid.children.length === 0) {
+          const header = grid.previousElementSibling;
+          grid.remove();
+          if (header && header.classList.contains("gallery-day-header")) header.remove();
+        }
+        const container = document.getElementById("gallery-container");
+        if (!container.querySelector(".gallery-item")) {
+          document.getElementById("gallery-empty").style.display = "block";
+        }
+      }
+    } catch (e) { btn.textContent = "×"; }
+  }
+
+  let lightboxFile = null;
+
+  function openLightbox(url, time, question, answer, filename) {
+    lightboxFile = filename || null;
+    document.getElementById("lightbox-img").src = url;
+    let meta = time;
+    if (question) meta += "\n" + question + " → " + answer;
+    document.getElementById("lightbox-meta").textContent = meta;
+    document.getElementById("lightbox-answers").innerHTML = "";
+    document.getElementById("lightbox-input").value = "";
+    document.getElementById("lightbox-followup").classList.remove("visible");
+    document.getElementById("lightbox").classList.add("visible");
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeLightbox() {
+    document.getElementById("lightbox").classList.remove("visible");
+    document.getElementById("lightbox-followup").classList.remove("visible");
+    document.body.style.overflow = "";
+    lightboxFile = null;
+  }
+
+  function toggleLightboxFollowup() {
+    document.getElementById("lightbox-followup").classList.toggle("visible");
+    if (document.getElementById("lightbox-followup").classList.contains("visible")) {
+      document.getElementById("lightbox-input").focus();
+      document.getElementById("lightbox-followup").scrollIntoView({behavior:"smooth"});
+    }
+  }
+
+  async function lightboxAsk() {
+    const input = document.getElementById("lightbox-input");
+    const q = input.value.trim();
+    if (!q) return;
+    const answers = document.getElementById("lightbox-answers");
+    input.disabled = true;
+    const chip = document.createElement("div");
+    chip.className = "lb-chip pending";
+    chip.innerHTML = '<span class="aq">' + q + '</span><span class="aa">···</span>';
+    answers.appendChild(chip);
+    input.value = "";
+    try {
+      const body = { question: q };
+      if (lightboxFile) body.alarm_file = lightboxFile;
+      const r = await fetch(server() + "/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const data = await r.json();
+      chip.className = "lb-chip";
+      chip.querySelector(".aa").textContent = data.answer || data.error || "?";
+    } catch (e) {
+      chip.className = "lb-chip";
+      chip.querySelector(".aa").textContent = "Fehler";
+    }
+    input.disabled = false;
+    input.focus();
+  }
+
+  addQuestion("Do you see green", "yes", "");
+  checkHealth();
+  setInterval(checkHealth, 10000);
+  connectSocket();
+  if (typeof Notification !== "undefined") Notification.requestPermission();
+</script>
+</body>
+</html>
