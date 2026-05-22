@@ -425,12 +425,12 @@ def mode_server(args, cfg):
         data = request.get_json()
         if not data or "question" not in data:
             return jsonify({"error": "question required"}), 400
-        requested_model = data.get("model")
-        if requested_model and requested_model != vqa_models._model_name:
-            return jsonify({
-                "error": "model '{}' not loaded; server is running '{}'".format(
-                    requested_model, vqa_models._model_name)
-            }), 409
+        requested_model = (data.get("model") or "").lower() or None
+        if requested_model and requested_model not in vqa_models.loaded_models():
+            try:
+                eventlet.tpool.execute(vqa_models.init_model, requested_model, None, True)
+            except Exception as e:
+                return jsonify({"error": "failed to load model '{}': {}".format(requested_model, e)}), 500
         try:
             if "alarm_file" in data:
                 path = os.path.join(ALARM_DIR, os.path.basename(data["alarm_file"]))
@@ -440,13 +440,23 @@ def mode_server(args, cfg):
                 path = IMAGE_PATH
             if not os.path.exists(path):
                 return jsonify({"error": "File not found"}), 404
-            answer = eventlet.tpool.execute(vqa_models.run_vqa, path, data["question"])
+            answer = eventlet.tpool.execute(vqa_models.run_vqa, path, data["question"], requested_model)
+            used_model = requested_model or vqa_models.current_model()
             if "alarm_file" in data:
                 vqa_storage.add_followup(ALARM_DIR, os.path.basename(data["alarm_file"]),
                                          data["question"], answer)
-            return jsonify({"answer": answer, "model": vqa_models._model_name})
+            return jsonify({"answer": answer, "model": used_model})
         except Exception as e:
             return jsonify({"error": str(e)}), 500
+
+    @app.route("/models")
+    def list_models():
+        return jsonify({
+            "current":    vqa_models.current_model(),
+            "loaded":     vqa_models.loaded_models(),
+            "available":  list(vqa_models.MODEL_DEFAULTS.keys()),
+            "max_loaded": vqa_models.MAX_LOADED,
+        })
 
     @app.route("/save_alarm", methods=["POST"])
     def save_alarm_route():

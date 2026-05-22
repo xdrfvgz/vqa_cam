@@ -1417,12 +1417,19 @@
     btn.disabled = true; btn.textContent = "···";
     const results = document.getElementById("mq-cmp-results");
     results.innerHTML = "";
+    let loaded = [];
+    try {
+      const lr = await fetch(server() + "/models");
+      const ld = await lr.json();
+      loaded = ld.loaded || [];
+    } catch {}
     const rows = {};
     [...mqSelected].forEach(m => {
       const row = document.createElement("div");
       row.className = "mq-cmp-result pending";
       const name = document.createElement("span"); name.className = "mq-cmp-name"; name.textContent = m;
-      const ans  = document.createElement("span"); ans.className  = "mq-cmp-ans";  ans.textContent = "···";
+      const ans  = document.createElement("span"); ans.className  = "mq-cmp-ans";
+      ans.textContent = loaded.includes(m) ? "···" : "lädt (kann minutenlang dauern)...";
       row.appendChild(name); row.appendChild(ans);
       results.appendChild(row);
       rows[m] = { row, ans };
@@ -1556,8 +1563,26 @@
 
       askBtn.disabled    = true;
       askBtn.textContent = "···";
-      answerEl.style.display = "none";
       addFollowupBtn.style.display = "none";
+
+      let loaded = [];
+      try {
+        const lr = await fetch(server() + "/models");
+        const ld = await lr.json();
+        loaded = ld.loaded || [];
+      } catch {}
+      if (!loaded.includes(model)) {
+        answerEl.className = "mq-answer";
+        answerEl.style.display = "flex";
+        answerEl.innerHTML = "";
+        const tag = document.createElement("span"); tag.className = "mq-answer-model"; tag.textContent = model;
+        const txt = document.createElement("span"); txt.className = "mq-answer-text";
+        txt.style.color = "var(--text-3)";
+        txt.textContent = "lädt (kann minutenlang dauern)...";
+        answerEl.appendChild(tag); answerEl.appendChild(txt);
+      } else {
+        answerEl.style.display = "none";
+      }
 
       const body = { question, model };
       if (mqImage.type === "alarm")   body.alarm_file   = mqImage.file;

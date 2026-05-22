@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# vqa_models.py – model loading and inference
+# vqa_cam/models.py – model loading, LRU cache, and inference
 #
 # Supported models:
 #   vilt   – dandelin/vilt-b32-finetuned-vqa   (~200MB, fast, fixed vocab)
@@ -8,10 +8,15 @@
 #   blip-l – Salesforce/blip-vqa-capfilt-large (~900MB, better accuracy)
 #   git    – microsoft/git-base-vqav2          (~700MB, generative)
 #   vbert  – uclanlp/visualbert-vqa            (~400MB, fixed vocab, needs detector)
+#
+# Cache: up to MAX_LOADED models held in memory at once (LRU eviction).
+# Configure via env VQA_MAX_LOADED_MODELS (default 2).
 
 import os
 import contextlib
 import io
+import threading
+from collections import OrderedDict
 
 os.environ["HF_HUB_DISABLE_XET"] = "1"
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
@@ -24,45 +29,76 @@ MODEL_DEFAULTS = {
     "vbert":  {"model_id": "uclanlp/visualbert-vqa",                "dir": "~/vqa-models/vbert"},
 }
 
-_processor  = None
-_model      = None
-_model_name = None
+MAX_LOADED = max(1, int(os.environ.get("VQA_MAX_LOADED_MODELS", "2")))
+
+_cache = OrderedDict()
+_lock  = threading.RLock()
 
 
 def init_model(model_name, model_dir=None, quiet=False):
-    global _processor, _model, _model_name
     model_name = model_name.lower()
     if model_name not in MODEL_DEFAULTS:
         raise ValueError("Unknown model: " + model_name + ". Choose: " + ", ".join(MODEL_DEFAULTS))
-    defaults  = MODEL_DEFAULTS[model_name]
-    model_id  = defaults["model_id"]
-    model_dir = model_dir or os.path.expanduser(defaults["dir"])
-    if not quiet:
-        print("\033[90mLoading model: " + model_name + "\033[0m")
-    if model_name == "vilt":
-        _processor, _model = _load_vilt(model_id, model_dir)
-    elif model_name in ("blip", "blip-l"):
-        _processor, _model = _load_blip(model_id, model_dir)
-    elif model_name == "git":
-        _processor, _model = _load_git(model_id, model_dir)
-    elif model_name == "vbert":
-        _processor, _model = _load_vbert(model_id, model_dir)
-    _model_name = model_name
-    return _processor, _model, _model_name
+    with _lock:
+        if model_name in _cache:
+            _cache.move_to_end(model_name)
+            return model_name
+        while len(_cache) >= MAX_LOADED:
+            evicted = next(iter(_cache))
+            del _cache[evicted]
+            if not quiet:
+                print("\033[90mEvicted from cache: " + evicted + "\033[0m")
+        if not quiet:
+            print("\033[90mLoading model: " + model_name + "\033[0m")
+        defaults  = MODEL_DEFAULTS[model_name]
+        model_id  = defaults["model_id"]
+        model_dir = model_dir or os.path.expanduser(defaults["dir"])
+        if model_name == "vilt":
+            p, m = _load_vilt(model_id, model_dir)
+        elif model_name in ("blip", "blip-l"):
+            p, m = _load_blip(model_id, model_dir)
+        elif model_name == "git":
+            p, m = _load_git(model_id, model_dir)
+        elif model_name == "vbert":
+            p, m = _load_vbert(model_id, model_dir)
+        _cache[model_name] = (p, m)
+        return model_name
 
 
-def run_vqa(image_path, question):
+def run_vqa(image_path, question, model_name=None):
     from PIL import Image
+    with _lock:
+        if model_name:
+            model_name = model_name.lower()
+            if model_name not in _cache:
+                raise ValueError("Model '" + model_name + "' not loaded")
+            _cache.move_to_end(model_name)
+        else:
+            if not _cache:
+                raise ValueError("No model loaded")
+            model_name = next(reversed(_cache))
+        processor, model = _cache[model_name]
     img = Image.open(image_path).convert("RGB")
-    if _model_name == "vilt":
-        return _run_vilt(_processor, _model, img, question)
-    elif _model_name in ("blip", "blip-l"):
-        return _run_blip(_processor, _model, img, question)
-    elif _model_name == "git":
-        return _run_git(_processor, _model, img, question)
-    elif _model_name == "vbert":
-        return _run_vbert(_processor, _model, img, question)
-    raise ValueError("No model loaded")
+    if model_name == "vilt":
+        return _run_vilt(processor, model, img, question)
+    elif model_name in ("blip", "blip-l"):
+        return _run_blip(processor, model, img, question)
+    elif model_name == "git":
+        return _run_git(processor, model, img, question)
+    elif model_name == "vbert":
+        return _run_vbert(processor, model, img, question)
+
+
+def current_model():
+    with _lock:
+        if not _cache:
+            return None
+        return next(reversed(_cache))
+
+
+def loaded_models():
+    with _lock:
+        return list(_cache.keys())
 
 
 def _tpool(fn):
