@@ -5,7 +5,7 @@
 import os
 import subprocess
 
-from vqa_config import CAMERA_COMMANDS
+from vqa_cam.config import CAMERA_COMMANDS
 
 RED   = "\033[91m"
 GRAY  = "\033[90m"

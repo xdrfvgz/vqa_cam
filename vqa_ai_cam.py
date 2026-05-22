@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# vqa-ai-cam.py
+# vqa_ai_cam.py
 #
 # VQA-Cam – visual question answering for surveillance and automation
 #
@@ -15,14 +15,14 @@
 # Config file: ~/vqa-scripts/config/vqa-ai-cam.json
 #
 # Usage:
-#   python3 vqa-ai-cam.py ask "Do you see a human?" yes --image foto.jpg
-#   python3 vqa-ai-cam.py single --camera termux --timg
-#   python3 vqa-ai-cam.py loop --camera termux --interval 10 --config questions.json --save
-#   python3 vqa-ai-cam.py gallery --timg --interactive
-#   python3 vqa-ai-cam.py server
-#   python3 vqa-ai-cam.py server --port 5666 --model blip
-#   python3 vqa-ai-cam.py config init
-#   python3 vqa-ai-cam.py config show
+#   python3 vqa_ai_cam.py ask "Do you see a human?" yes --image foto.jpg
+#   python3 vqa_ai_cam.py single --camera termux --timg
+#   python3 vqa_ai_cam.py loop --camera termux --interval 10 --config questions.json --save
+#   python3 vqa_ai_cam.py gallery --timg --interactive
+#   python3 vqa_ai_cam.py server
+#   python3 vqa_ai_cam.py server --port 5666 --model blip
+#   python3 vqa_ai_cam.py config init
+#   python3 vqa_ai_cam.py config show
 
 import sys
 import os
@@ -38,13 +38,11 @@ from datetime import datetime
 os.environ["HF_HUB_DISABLE_XET"] = "1"
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-import vqa_config
-import vqa_models
-import vqa_camera
-import vqa_storage
-import vqa_chain
+from vqa_cam import config as vqa_config
+from vqa_cam import models as vqa_models
+from vqa_cam import camera as vqa_camera
+from vqa_cam import storage as vqa_storage
+from vqa_cam import chain as vqa_chain
 
 # ── ANSI ─────────────────────────────────────────────────────────────────────
 

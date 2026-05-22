@@ -3,8 +3,8 @@
 # vqa_chain.py – rule chain evaluation
 
 import subprocess
-from vqa_models import run_vqa
-from vqa_storage import save_alarm
+from vqa_cam.models import run_vqa
+from vqa_cam.storage import save_alarm
 
 RED   = "\033[91m"
 GREEN = "\033[92m"
