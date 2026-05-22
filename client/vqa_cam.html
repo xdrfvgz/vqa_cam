@@ -463,97 +463,13 @@
     align-items: center;
     justify-content: center;
   }
-  .models-image-area img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
-  .models-image-placeholder {
-    color: var(--text-3);
-    font-family: 'DM Mono', monospace;
-    font-size: 0.75rem;
-  }
-  .models-controls {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
-    flex-wrap: wrap;
-  }
-  .models-question-row {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-  .models-question-row input {
-    flex: 1;
-    padding: 9px 12px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 0.85rem;
-    color: var(--text);
-    outline: none;
-  }
-  .models-question-row input:focus { border-color: var(--accent); }
-  .model-checkboxes {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-  .model-checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 5px 12px;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.72rem;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .model-checkbox-label:has(input:checked) {
-    border-color: var(--accent);
-    color: var(--text);
-  }
-  .model-checkbox-label input { display: none; }
-  .models-results {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .model-result-row {
-    background: var(--surface);
-    border-radius: 8px;
-    padding: 10px 14px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.78rem;
-  }
-  .model-result-name {
-    color: var(--text-3);
-    min-width: 60px;
-    flex-shrink: 0;
-  }
-  .model-result-answer {
-    color: var(--text);
-    font-weight: 500;
-    flex: 1;
-  }
-  .model-result-row.pending .model-result-answer {
-    color: var(--text-3);
-    animation: pulse 1.2s ease-in-out infinite;
-  }
-  .model-result-row.matched .model-result-answer { color: var(--red); }
+  .models-image-area img { width: 100%; height: 100%; object-fit: contain; }
+  .models-image-placeholder { color: var(--text-3); font-family: 'DM Mono', monospace; font-size: 0.75rem; }
+  .models-controls { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
   .models-source-select {
     flex: 1;
     padding: 9px 12px;
-    background: var(--surface);
+    background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 8px;
     font-family: 'DM Mono', monospace;
@@ -561,6 +477,121 @@
     color: var(--text);
     outline: none;
   }
+  .mq-chain { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+  .mq-item { display: flex; flex-direction: column; }
+  .mq-row { display: flex; gap: 6px; align-items: center; }
+  .mq-model-sel {
+    padding: 8px 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-2);
+    outline: none;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .mq-model-sel:focus { border-color: var(--accent); }
+  .mq-input {
+    flex: 1;
+    padding: 8px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    color: var(--text);
+    outline: none;
+  }
+  .mq-input:focus { border-color: var(--accent); }
+  .mq-match {
+    width: 68px;
+    padding: 8px 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-2);
+    outline: none;
+    flex-shrink: 0;
+  }
+  .mq-match:focus { border-color: var(--accent); }
+  .mq-ask-btn {
+    padding: 8px 14px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+    transition: opacity 0.15s;
+  }
+  .mq-ask-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .mq-del-btn {
+    padding: 6px 10px;
+    background: transparent;
+    border: none;
+    color: var(--text-3);
+    cursor: pointer;
+    font-size: 1rem;
+    border-radius: 6px;
+    transition: color 0.15s;
+    flex-shrink: 0;
+  }
+  .mq-del-btn:hover { color: var(--red); }
+  .mq-answer {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 5px 12px 2px 2px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.76rem;
+  }
+  .mq-answer-model { color: var(--text-3); flex-shrink: 0; min-width: 50px; }
+  .mq-answer-text { color: var(--text); }
+  .mq-answer.matched .mq-answer-text { color: var(--red); font-weight: 500; }
+  .mq-answer.errored .mq-answer-text { color: var(--red); opacity: 0.65; }
+  .mq-children {
+    margin-left: 20px;
+    border-left: 2px solid var(--border);
+    padding-left: 12px;
+    padding-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .mq-add-followup {
+    display: none;
+    margin: 4px 0 0 2px;
+    padding: 3px 10px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.72rem;
+    color: var(--text-3);
+    cursor: pointer;
+    transition: all 0.15s;
+    align-self: flex-start;
+  }
+  .mq-add-followup:hover { border-color: var(--accent); color: var(--text); }
+  .mq-add-top {
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.78rem;
+    color: var(--text-3);
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.15s;
+    margin-top: 4px;
+  }
+  .mq-add-top:hover { border-color: var(--accent); color: var(--text); }
   #lightbox {
     display: none;
     position: fixed;
@@ -780,29 +811,21 @@
 </div>
 
 <!-- MODELLE -->
-<div id="tab-models" class="tab-content" style="display:none">
-  <div class="card">
+<div class="tab-panel" id="tab-models">
+  <div class="card" style="padding: 16px;">
     <div class="models-image-area" id="models-image-area">
       <span class="models-image-placeholder">Kein Bild</span>
     </div>
     <div class="models-controls">
-      <button class="btn" onclick="modelsTakePhoto()">Foto aufnehmen</button>
-      <select id="models-source-select" class="models-source-select" onchange="modelsSelectImage(this.value)">
+      <button class="btn" style="flex:none;padding:9px 14px;border:1px solid var(--border);border-radius:8px;" onclick="modelsTakePhoto()">Foto aufnehmen</button>
+      <select id="models-source-select" class="models-source-select" onchange="mqSelectImage(this)">
         <option value="">Bild aus Galerie wählen...</option>
+        <optgroup label="Alarme" id="mq-alarm-opts"></optgroup>
+        <optgroup label="Aufnahmen" id="mq-capture-opts"></optgroup>
       </select>
     </div>
-    <div class="models-question-row">
-      <input type="text" id="models-question" placeholder="Frage eingeben...">
-      <button class="btn" onclick="modelsAsk()">→</button>
-    </div>
-    <div class="model-checkboxes" id="model-checkboxes">
-      <label class="model-checkbox-label"><input type="checkbox" value="vilt" checked> vilt</label>
-      <label class="model-checkbox-label"><input type="checkbox" value="blip"> blip</label>
-      <label class="model-checkbox-label"><input type="checkbox" value="blip-l"> blip-l</label>
-      <label class="model-checkbox-label"><input type="checkbox" value="git"> git</label>
-      <label class="model-checkbox-label"><input type="checkbox" value="vbert"> vbert</label>
-    </div>
-    <div class="models-results" id="models-results"></div>
+    <div class="mq-chain" id="mq-chain"></div>
+    <button class="mq-add-top" onclick="mqAddQuestion()">+ Frage hinzufügen</button>
   </div>
 </div>
 
@@ -1222,22 +1245,37 @@
   }
 
   // MODELS TAB
-  let modelsImagePath = null;
+  const MQ_MODELS = ["vilt", "blip", "blip-l", "git", "vbert"];
+  let mqImage = { type: null, file: null };
 
   async function initModelsTab() {
-    // Load alarm images into select
-    const sel = document.getElementById("models-source-select");
-    sel.innerHTML = '<option value="">Bild aus Galerie wählen...</option>';
+    const alarmOpts   = document.getElementById("mq-alarm-opts");
+    const captureOpts = document.getElementById("mq-capture-opts");
+    alarmOpts.innerHTML = "";
+    captureOpts.innerHTML = "";
     try {
-      const r = await fetch(server() + "/alarms");
-      const data = await r.json();
-      (data.alarms || []).reverse().forEach(a => {
+      const [ar, cr] = await Promise.all([
+        fetch(server() + "/alarms"),
+        fetch(server() + "/captures")
+      ]);
+      const ad = await ar.json();
+      const cd = await cr.json();
+      (ad.alarms || []).reverse().forEach(a => {
         const opt = document.createElement("option");
         opt.value = a.file;
-        opt.textContent = a.file.replace(".jpg", "").replace("_", " ");
-        sel.appendChild(opt);
+        opt.dataset.itype = "alarm";
+        opt.textContent = a.file.replace(".jpg","").replace(/_/g," ");
+        alarmOpts.appendChild(opt);
+      });
+      (cd.files || []).forEach(f => {
+        const opt = document.createElement("option");
+        opt.value = f;
+        opt.dataset.itype = "capture";
+        opt.textContent = f.replace(".jpg","").replace(/_/g," ");
+        captureOpts.appendChild(opt);
       });
     } catch {}
+    if (document.getElementById("mq-chain").children.length === 0) mqAddQuestion();
   }
 
   async function modelsTakePhoto() {
@@ -1245,65 +1283,158 @@
     area.innerHTML = '<span class="models-image-placeholder">Aufnahme...</span>';
     try {
       await fetch(server() + "/photo", { method: "POST" });
-      const url = server() + "/image?t=" + Date.now();
-      modelsImagePath = null; // use current image
-      area.innerHTML = '<img src="' + url + '">';
-      document.getElementById("models-results").innerHTML = "";
-    } catch (e) {
+      mqImage = { type: "current", file: null };
+      const img = document.createElement("img");
+      img.src = server() + "/image?t=" + Date.now();
+      area.innerHTML = "";
+      area.appendChild(img);
+      document.getElementById("models-source-select").value = "";
+    } catch {
       area.innerHTML = '<span class="models-image-placeholder">Fehler</span>';
     }
   }
 
-  function modelsSelectImage(filename) {
-    if (!filename) return;
-    modelsImagePath = filename;
+  function mqSelectImage(sel) {
+    const opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value) return;
+    mqImage = { type: opt.dataset.itype, file: opt.value };
+    const endpoint = opt.dataset.itype === "alarm" ? "alarms" : "captures";
+    const url = server() + "/" + endpoint + "/" + encodeURIComponent(opt.value);
     const area = document.getElementById("models-image-area");
-    const url  = server() + "/alarms/" + encodeURIComponent(filename);
-    area.innerHTML = '<img src="' + url + '">';
-    document.getElementById("models-results").innerHTML = "";
+    const img = document.createElement("img");
+    img.src = url;
+    area.innerHTML = "";
+    area.appendChild(img);
   }
 
-  async function modelsAsk() {
-    const question = document.getElementById("models-question").value.trim();
-    if (!question) return;
-    const selected = Array.from(
-      document.querySelectorAll("#model-checkboxes input:checked")
-    ).map(cb => cb.value);
-    if (!selected.length) return;
-
-    const results = document.getElementById("models-results");
-    results.innerHTML = "";
-
-    // Create pending rows
-    const rows = {};
-    selected.forEach(m => {
-      const row = document.createElement("div");
-      row.className = "model-result-row pending";
-      row.innerHTML = '<span class="model-result-name">' + m + '</span>' +
-                      '<span class="model-result-answer">···</span>';
-      results.appendChild(row);
-      rows[m] = row;
+  function mqMakeModelSel() {
+    const sel = document.createElement("select");
+    sel.className = "mq-model-sel";
+    MQ_MODELS.forEach(m => {
+      const opt = document.createElement("option");
+      opt.value = m;
+      opt.textContent = m;
+      if (m === "blip") opt.selected = true;
+      sel.appendChild(opt);
     });
+    return sel;
+  }
 
-    // Ask each model sequentially
-    for (const m of selected) {
+  function mqAddQuestion(parentChain, depth) {
+    const chain = parentChain || document.getElementById("mq-chain");
+    const d = depth || 0;
+    const item = document.createElement("div");
+    item.className = "mq-item";
+
+    const row = document.createElement("div");
+    row.className = "mq-row";
+
+    const modelSel   = mqMakeModelSel();
+    const qInput     = document.createElement("input");
+    qInput.type      = "text";
+    qInput.className = "mq-input";
+    qInput.placeholder = "Frage...";
+
+    const matchInput     = document.createElement("input");
+    matchInput.type      = "text";
+    matchInput.className = "mq-match";
+    matchInput.placeholder = "match";
+    matchInput.title = "Antwort muss dieses Wort enthalten";
+
+    const askBtn       = document.createElement("button");
+    askBtn.className   = "mq-ask-btn";
+    askBtn.textContent = "→";
+
+    const delBtn       = document.createElement("button");
+    delBtn.className   = "mq-del-btn";
+    delBtn.textContent = "×";
+    delBtn.onclick = () => item.remove();
+
+    row.appendChild(modelSel);
+    row.appendChild(qInput);
+    row.appendChild(matchInput);
+    row.appendChild(askBtn);
+    row.appendChild(delBtn);
+    item.appendChild(row);
+
+    const answerEl = document.createElement("div");
+    answerEl.className = "mq-answer";
+    answerEl.style.display = "none";
+    item.appendChild(answerEl);
+
+    const children = document.createElement("div");
+    children.className = "mq-children";
+    children.style.display = "none";
+    item.appendChild(children);
+
+    const addFollowupBtn       = document.createElement("button");
+    addFollowupBtn.className   = "mq-add-followup";
+    addFollowupBtn.textContent = "+ Folgefrage";
+    addFollowupBtn.onclick = () => {
+      children.style.display = "flex";
+      children.style.flexDirection = "column";
+      mqAddQuestion(children, d + 1);
+      addFollowupBtn.style.display = "none";
+    };
+    item.appendChild(addFollowupBtn);
+
+    const doAsk = async () => {
+      const question = qInput.value.trim();
+      const model    = modelSel.value;
+      const matchWord = matchInput.value.trim().toLowerCase();
+      if (!question) { qInput.focus(); return; }
+
+      askBtn.disabled    = true;
+      askBtn.textContent = "···";
+      answerEl.style.display = "none";
+      addFollowupBtn.style.display = "none";
+
+      const body = { question, model };
+      if (mqImage.type === "alarm")   body.alarm_file   = mqImage.file;
+      if (mqImage.type === "capture") body.capture_file = mqImage.file;
+
       try {
-        const body = { question: question, model: m };
-        if (modelsImagePath) body.alarm_file = modelsImagePath;
-        const r = await fetch(server() + "/ask", {
+        const resp = await fetch(server() + "/ask", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body)
         });
-        const data = await r.json();
-        const answer = data.answer || (r.status === 409 ? "nicht geladen – Server neu starten mit --model " + m : data.error) || "?";
-        rows[m].className = "model-result-row" + (data.error ? " pending" : "");
-        rows[m].querySelector(".model-result-answer").textContent = answer;
+        const data   = await resp.json();
+        const answer = data.answer || (resp.status === 409
+          ? "Modell '" + model + "' nicht geladen"
+          : (data.error || "?"));
+        const matched = matchWord && answer.toLowerCase().includes(matchWord);
+        const hasErr  = !data.answer;
+
+        answerEl.className    = "mq-answer" + (matched ? " matched" : hasErr ? " errored" : "");
+        answerEl.style.display = "flex";
+        answerEl.innerHTML    = "";
+        const tag = document.createElement("span");
+        tag.className   = "mq-answer-model";
+        tag.textContent = data.model || model;
+        const txt = document.createElement("span");
+        txt.className   = "mq-answer-text";
+        txt.textContent = answer;
+        answerEl.appendChild(tag);
+        answerEl.appendChild(txt);
+
+        addFollowupBtn.style.display = "inline-block";
       } catch (e) {
-        rows[m].className = "model-result-row";
-        rows[m].querySelector(".model-result-answer").textContent = "Fehler";
+        answerEl.className     = "mq-answer errored";
+        answerEl.style.display = "flex";
+        answerEl.textContent   = "Fehler: " + e.message;
       }
-    }
+
+      askBtn.disabled    = false;
+      askBtn.textContent = "→";
+    };
+
+    askBtn.onclick = doAsk;
+    qInput.addEventListener("keydown", e => { if (e.key === "Enter") doAsk(); });
+
+    chain.appendChild(item);
+    qInput.focus();
+    return item;
   }
   function formatDay(ts) {
     if (!ts) return "Unbekannt";
