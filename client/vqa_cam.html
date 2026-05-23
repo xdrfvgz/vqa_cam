@@ -478,7 +478,7 @@
     outline: none;
   }
   .mq-chain { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
-  .mq-item { display: flex; flex-direction: column; }
+  .mq-item { display: flex; flex-direction: column; gap: 6px; }
   .mq-row { display: flex; gap: 6px; align-items: center; }
   .mq-model-sel {
     padding: 8px 8px;
@@ -506,7 +506,8 @@
   }
   .mq-input:focus { border-color: var(--accent); }
   .mq-match {
-    width: 68px;
+    flex: 1;
+    min-width: 0;
     padding: 8px 8px;
     background: var(--bg);
     border: 1px solid var(--border);
@@ -515,7 +516,6 @@
     font-size: 0.72rem;
     color: var(--text-2);
     outline: none;
-    flex-shrink: 0;
   }
   .mq-match:focus { border-color: var(--accent); }
   .mq-ask-btn {
@@ -1511,8 +1511,10 @@
     const item = document.createElement("div");
     item.className = "mq-item";
 
-    const row = document.createElement("div");
-    row.className = "mq-row";
+    const row1 = document.createElement("div");
+    row1.className = "mq-row";
+    const row2 = document.createElement("div");
+    row2.className = "mq-row";
 
     const modelSel   = mqMakeModelSel();
     const qInput     = document.createElement("input");
@@ -1535,12 +1537,13 @@
     delBtn.textContent = "×";
     delBtn.onclick = () => item.remove();
 
-    row.appendChild(modelSel);
-    row.appendChild(qInput);
-    row.appendChild(matchInput);
-    row.appendChild(askBtn);
-    row.appendChild(delBtn);
-    item.appendChild(row);
+    row1.appendChild(modelSel);
+    row1.appendChild(qInput);
+    row2.appendChild(matchInput);
+    row2.appendChild(askBtn);
+    row2.appendChild(delBtn);
+    item.appendChild(row1);
+    item.appendChild(row2);
 
     const answerEl = document.createElement("div");
     answerEl.className = "mq-answer";
