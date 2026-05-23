@@ -72,6 +72,53 @@ def load(overrides=None):
     return cfg
 
 
+def edit():
+    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+    if not os.path.exists(CONFIG_PATH):
+        init()
+    import subprocess
+    editor = os.environ.get("EDITOR") or os.environ.get("VISUAL") or "vi"
+    return subprocess.call([editor, CONFIG_PATH])
+
+
+def validate():
+    issues = []
+    if not os.path.exists(CONFIG_PATH):
+        return ["Config file does not exist: " + CONFIG_PATH + " (run 'config init')"]
+    try:
+        with open(CONFIG_PATH) as f:
+            stored = json.load(f)
+    except json.JSONDecodeError as e:
+        return ["Invalid JSON: " + str(e)]
+    if not isinstance(stored, dict):
+        return ["Top-level must be a JSON object"]
+    cfg = load()
+    if cfg.get("model") not in _MODEL_DIRS:
+        issues.append("Unknown model: " + str(cfg.get("model")) +
+                      " (known: " + ", ".join(_MODEL_DIRS) + ")")
+    for key in ("alarm_dir", "capture_dir", "sound_dir"):
+        path = cfg.get(key)
+        if path and not os.path.exists(path):
+            issues.append(key + " does not exist (will be created on use): " + path)
+    html = cfg.get("html_path")
+    if html and not os.path.exists(html):
+        issues.append("html_path does not exist: " + html)
+    port = cfg.get("port")
+    if not isinstance(port, int) or not (1 <= port <= 65535):
+        issues.append("Invalid port: " + str(port))
+    questions = stored.get("questions", [])
+    if questions and not isinstance(questions, list):
+        issues.append("'questions' must be a list")
+    else:
+        for i, q in enumerate(questions):
+            if not isinstance(q, dict):
+                issues.append("questions[" + str(i) + "] must be an object")
+                continue
+            if not q.get("question"):
+                issues.append("questions[" + str(i) + "] missing 'question'")
+    return issues
+
+
 def save(updates):
     os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
     stored = {}

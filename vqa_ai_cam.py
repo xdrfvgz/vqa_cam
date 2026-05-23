@@ -238,6 +238,17 @@ def mode_config(args, cfg):
         vqa_config.init()
     elif args.action == "show":
         print(json.dumps(cfg, indent=2))
+    elif args.action == "edit":
+        vqa_config.edit()
+    elif args.action == "validate":
+        issues = vqa_config.validate()
+        if not issues:
+            print(GREEN + "Config is valid." + RESET)
+        else:
+            print(RED + "Found " + str(len(issues)) + " issue(s):" + RESET)
+            for msg in issues:
+                print("  " + RED + "•" + RESET + " " + msg)
+            sys.exit(1)
     elif args.action == "purge-model":
         model     = cfg["model"]
         model_dir = cfg["model_dir"]
@@ -251,6 +262,26 @@ def mode_config(args, cfg):
             print(GREEN + "Cleaned " + str(tmp_count) + " incomplete temp file(s)." + RESET)
         if not removed and not tmp_count:
             print(GRAY + "Nothing to remove." + RESET)
+
+
+def mode_status(args, cfg):
+    import urllib.request
+    url = "http://" + cfg["host"] + ":" + str(cfg["port"]) + "/health"
+    try:
+        with urllib.request.urlopen(url, timeout=2) as resp:
+            data = json.loads(resp.read().decode())
+    except Exception as e:
+        print(RED + "Cannot reach server at " + url + ": " + str(e) + RESET)
+        sys.exit(2)
+    print(BOLD + "Server " + GREEN + "online" + RESET + GRAY + "  " + url + RESET)
+    print(GRAY + "  model     " + RESET + str(data.get("model")))
+    print(GRAY + "  loaded    " + RESET + ", ".join(data.get("loaded", [])))
+    print(GRAY + "  camera    " + RESET + str(data.get("camera")))
+    print(GRAY + "  started   " + RESET + str(data.get("started_at")))
+    print(GRAY + "  loop      " + RESET + ("running" if data.get("loop_running") else "idle"))
+    counts = data.get("counts", {})
+    print(GRAY + "  alarms    " + RESET + str(counts.get("alarms", 0)))
+    print(GRAY + "  captures  " + RESET + str(counts.get("captures", 0)))
 
 
 # ── Server mode ───────────────────────────────────────────────────────────────
@@ -685,11 +716,14 @@ def main():
 
     # config
     p_cfg = sub.add_parser("config", help="Manage config file")
-    p_cfg.add_argument("action", choices=["show", "init", "purge-model"],
-                       help="show | init | purge-model")
+    p_cfg.add_argument("action", choices=["show", "init", "edit", "validate", "purge-model"],
+                       help="show | init | edit | validate | purge-model")
     p_cfg.add_argument("--model", default=None,
                        choices=["vilt", "blip", "blip-l", "git", "vbert", "moondream"],
                        help="Model to purge (default: configured model)")
+
+    # status
+    sub.add_parser("status", help="Show running server status")
 
     args = parser.parse_args()
 
@@ -717,6 +751,8 @@ def main():
         mode_server(args, cfg)
     elif args.mode == "config":
         mode_config(args, cfg)
+    elif args.mode == "status":
+        mode_status(args, cfg)
 
 
 if __name__ == "__main__":
