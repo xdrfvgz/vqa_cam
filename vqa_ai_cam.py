@@ -238,6 +238,19 @@ def mode_config(args, cfg):
         vqa_config.init()
     elif args.action == "show":
         print(json.dumps(cfg, indent=2))
+    elif args.action == "purge-model":
+        model     = cfg["model"]
+        model_dir = cfg["model_dir"]
+        print(GRAY + "Purging model: " + BOLD + model + RESET)
+        print(GRAY + "  dir: " + model_dir + RESET)
+        removed, tmp_count = vqa_config.purge_model(model, model_dir)
+        if removed:
+            for p in removed:
+                print(GREEN + "Removed: " + RESET + p)
+        if tmp_count:
+            print(GREEN + "Cleaned " + str(tmp_count) + " incomplete temp file(s)." + RESET)
+        if not removed and not tmp_count:
+            print(GRAY + "Nothing to remove." + RESET)
 
 
 # ── Server mode ───────────────────────────────────────────────────────────────
@@ -639,7 +652,11 @@ def main():
 
     # config
     p_cfg = sub.add_parser("config", help="Manage config file")
-    p_cfg.add_argument("action", choices=["show", "init"], help="show or init")
+    p_cfg.add_argument("action", choices=["show", "init", "purge-model"],
+                       help="show | init | purge-model")
+    p_cfg.add_argument("--model", default=None,
+                       choices=["vilt", "blip", "blip-l", "git", "vbert"],
+                       help="Model to purge (default: configured model)")
 
     args = parser.parse_args()
 

@@ -1429,25 +1429,33 @@
       row.className = "mq-cmp-result pending";
       const name = document.createElement("span"); name.className = "mq-cmp-name"; name.textContent = m;
       const ans  = document.createElement("span"); ans.className  = "mq-cmp-ans";
-      ans.textContent = loaded.includes(m) ? "···" : "lädt (kann minutenlang dauern)...";
+      ans.textContent = loaded.includes(m) ? "···" : "lädt... 0s";
       row.appendChild(name); row.appendChild(ans);
       results.appendChild(row);
-      rows[m] = { row, ans };
+      rows[m] = { row, ans, isLoaded: loaded.includes(m) };
     });
     for (const m of mqSelected) {
       const body = { question, model: m };
       if (mqImage.type === "alarm")   body.alarm_file   = mqImage.file;
       if (mqImage.type === "capture") body.capture_file = mqImage.file;
+      let _cmpTimer = null;
+      if (!rows[m].isLoaded) {
+        const _t0 = Date.now();
+        rows[m].ans.textContent = "lädt... 0s";
+        _cmpTimer = setInterval(() => { rows[m].ans.textContent = "lädt... " + Math.floor((Date.now() - _t0) / 1000) + "s"; }, 1000);
+      }
       try {
         const resp = await fetch(server() + "/ask", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body)
         });
+        if (_cmpTimer) clearInterval(_cmpTimer);
         const data = await resp.json();
         const answer = data.answer || (resp.status === 409 ? "nicht geladen" : (data.error || "?"));
         rows[m].row.className = "mq-cmp-result" + (!data.answer ? " errored" : "");
         rows[m].ans.textContent = answer;
       } catch (e) {
+        if (_cmpTimer) clearInterval(_cmpTimer);
         rows[m].row.className = "mq-cmp-result errored";
         rows[m].ans.textContent = "Fehler";
       }
@@ -1571,6 +1579,7 @@
         const ld = await lr.json();
         loaded = ld.loaded || [];
       } catch {}
+      let _loadTimer = null;
       if (!loaded.includes(model)) {
         answerEl.className = "mq-answer";
         answerEl.style.display = "flex";
@@ -1578,7 +1587,9 @@
         const tag = document.createElement("span"); tag.className = "mq-answer-model"; tag.textContent = model;
         const txt = document.createElement("span"); txt.className = "mq-answer-text";
         txt.style.color = "var(--text-3)";
-        txt.textContent = "lädt (kann minutenlang dauern)...";
+        const _t0 = Date.now();
+        txt.textContent = "lädt... 0s";
+        _loadTimer = setInterval(() => { txt.textContent = "lädt... " + Math.floor((Date.now() - _t0) / 1000) + "s"; }, 1000);
         answerEl.appendChild(tag); answerEl.appendChild(txt);
       } else {
         answerEl.style.display = "none";
@@ -1594,6 +1605,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body)
         });
+        if (_loadTimer) clearInterval(_loadTimer);
         const data   = await resp.json();
         const answer = data.answer || (resp.status === 409
           ? "Modell '" + model + "' nicht geladen"
@@ -1615,6 +1627,7 @@
 
         addFollowupBtn.style.display = "inline-block";
       } catch (e) {
+        if (_loadTimer) clearInterval(_loadTimer);
         answerEl.className     = "mq-answer errored";
         answerEl.style.display = "flex";
         answerEl.textContent   = "Fehler: " + e.message;

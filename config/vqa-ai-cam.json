@@ -1,5 +1,6 @@
 {
   "model": "blip",
+<<<<<<< HEAD
   "image_path": "~/vqa_ai_cam/images/foto.jpg",
   "alarm_dir": "~/vqa_ai_cam/alarms",
   "capture_dir": "~/vqa_ai_cam/captures",
@@ -8,3 +9,13 @@
   "port": 5666,
   "capture_limit": 100
 }
+=======
+  "image_path": "~/vqs_ai_cam/images/foto.jpg",
+  "alarm_dir": "~/vqs_ai_cam/alarms",
+  "capture_dir": "~/vqs_ai_cam/captures",
+  "sound_dir": "~/vqs_ai_cam/sounds",
+  "host": "127.0.0.1",
+  "port": 5666,
+  "capture_limit": 100
+}
+>>>>>>> origin/claude/vqa-config-management-lWZs6

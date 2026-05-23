@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-05-23T13:55:28.794080",
+  "question": "Do you see green",
+  "answer": "yes",
+  "chain": [
+    {
+      "question": "Do you see green",
+      "answer": "yes",
+      "matched": true
+    }
+  ]
+}
