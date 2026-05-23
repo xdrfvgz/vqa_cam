@@ -63,11 +63,11 @@ The server runs on `http://127.0.0.1:5666` by default. The ViLT model is downloa
 ### Configuration (top of `server.py`)
 
 ```python
-IMAGE_PATH   = "~/vqa-scripts/images/foto.jpg"
-ALARM_DIR    = "~/vqa-scripts/alarms"
-CAPTURE_DIR  = "~/vqa-scripts/captures"
-SOUND_DIR    = "~/vqa-scripts/sounds"
-HTML_PATH    = "~/vqa-scripts/vqa_cam.html"
+IMAGE_PATH   = "~/vqa_ai_cam/images/foto.jpg"
+ALARM_DIR    = "~/vqa_ai_cam/alarms"
+CAPTURE_DIR  = "~/vqa_ai_cam/captures"
+SOUND_DIR    = "~/vqa_ai_cam/sounds"
+HTML_PATH    = "~/vqa_ai_cam/vqa_cam.html"
 PORT         = 5666
 CAPTURE_LIMIT = 100   # max number of captures kept on disk
 ```

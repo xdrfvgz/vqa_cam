@@ -1,9 +1,9 @@
 {
   "model": "blip",
-  "image_path": "~/vqa-scripts/images/foto.jpg",
-  "alarm_dir": "~/vqa-scripts/alarms",
-  "capture_dir": "~/vqa-scripts/captures",
-  "sound_dir": "~/vqa-scripts/sounds",
+  "image_path": "~/vqa_ai_cam/images/foto.jpg",
+  "alarm_dir": "~/vqa_ai_cam/alarms",
+  "capture_dir": "~/vqa_ai_cam/captures",
+  "sound_dir": "~/vqa_ai_cam/sounds",
   "host": "127.0.0.1",
   "port": 5666,
   "capture_limit": 100,
