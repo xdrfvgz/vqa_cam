@@ -4,6 +4,7 @@
 
 import os
 import json
+import shutil
 
 CONFIG_PATH = os.path.expanduser("~/vqa-scripts/config/vqa-ai-cam.json")
 
@@ -19,6 +20,14 @@ _MODEL_DIRS = {
     "blip-l": "~/vqa-models/blip-l",
     "git":    "~/vqa-models/git",
     "vbert":  "~/vqa-models/vbert",
+}
+
+_HF_MODEL_IDS = {
+    "vilt":   "dandelin/vilt-b32-finetuned-vqa",
+    "blip":   "Salesforce/blip-vqa-base",
+    "blip-l": "Salesforce/blip-vqa-capfilt-large",
+    "git":    "microsoft/git-base-vqav2",
+    "vbert":  "uclanlp/visualbert-vqa",
 }
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -59,6 +68,31 @@ def load(overrides=None):
         model = cfg.get("model", "blip")
         cfg["model_dir"] = os.path.expanduser(_MODEL_DIRS.get(model, "~/vqa-models/" + model))
     return cfg
+
+
+def purge_model(model, model_dir):
+    removed = []
+    if os.path.exists(model_dir):
+        shutil.rmtree(model_dir)
+        removed.append(model_dir)
+    hf_cache = os.path.expanduser("~/.cache/huggingface/hub")
+    model_id = _HF_MODEL_IDS.get(model)
+    if model_id:
+        hf_dir = os.path.join(hf_cache, "models--" + model_id.replace("/", "--"))
+        if os.path.exists(hf_dir):
+            shutil.rmtree(hf_dir)
+            removed.append(hf_dir)
+    tmp_count = 0
+    if os.path.exists(hf_cache):
+        for dirpath, _, filenames in os.walk(hf_cache):
+            for fname in filenames:
+                if fname.endswith(".incomplete") or fname.startswith("tmp_"):
+                    try:
+                        os.remove(os.path.join(dirpath, fname))
+                        tmp_count += 1
+                    except OSError:
+                        pass
+    return removed, tmp_count
 
 
 def init():
