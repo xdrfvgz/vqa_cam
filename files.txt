@@ -1,0 +1,3165 @@
+./client/vqa_cam.html:
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VQA Surveillance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<style>
+  :root {
+    --bg: #f5f5f3;
+    --surface: #ffffff;
+    --border: #e4e4e0;
+    --border-strong: #d0d0cb;
+    --text: #1a1a18;
+    --text-2: #6b6b65;
+    --text-3: #a8a8a2;
+    --accent: #1a1a18;
+    --red: #d94f4f;
+    --green: #3a9e6f;
+    --blue: #3b7dd8;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 400;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 60px;
+  }
+
+  header {
+    width: 100%;
+    max-width: 680px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+  }
+
+  header h1 {
+    font-family: 'DM Mono', monospace;
+    font-weight: 400;
+    font-size: 0.9rem;
+    color: var(--text);
+    letter-spacing: 0.05em;
+  }
+
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--border-strong);
+    margin-left: auto;
+    transition: all 0.4s;
+    flex-shrink: 0;
+  }
+  .dot.online  { background: var(--green); }
+  .dot.error   { background: var(--red); }
+  .dot.running { background: var(--blue); animation: blink 1.4s ease-in-out infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .tabs {
+    width: 100%;
+    max-width: 680px;
+    display: flex;
+    gap: 2px;
+    margin-bottom: 20px;
+    background: var(--border);
+    padding: 2px;
+    border-radius: 8px;
+  }
+
+  .tab-btn {
+    flex: 1;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-2);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.02em;
+  }
+  .tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.5); }
+  .tab-btn.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+
+  .tab-panel { display: none; width: 100%; max-width: 680px; }
+  .tab-panel.active { display: block; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 540px) { .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface);
+    border: none;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .card.full { grid-column: 1 / -1; }
+
+  #image-container {
+    width: 100%;
+    aspect-ratio: 4/3;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+  #image-container img { width: 100%; height: 100%; object-fit: cover; display: none; }
+  .img-placeholder {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-3);
+    letter-spacing: 0.06em;
+  }
+  #alarm-flash {
+    position: absolute; inset: 0;
+    background: var(--red);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.1s;
+  }
+
+  .controls { display: flex; }
+
+  .btn {
+    flex: 1;
+    padding: 12px 10px;
+    background: transparent;
+    border: none;
+    color: var(--text-2);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.02em;
+  }
+  .btn + .btn { border-left: none; }
+  .btn:hover { background: var(--bg); color: var(--text); }
+  .btn:disabled { color: var(--text-3); cursor: not-allowed; }
+  .btn.start { color: var(--green); }
+  .btn.stop  { color: var(--red); }
+
+  #answers-bar {
+    padding: 8px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 0;
+  }
+
+  .answer-chip {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+  }
+  .answer-chip .aq {
+    color: var(--text-3);
+    font-size: 0.68rem;
+    flex-shrink: 0;
+  }
+  .answer-chip .aa {
+    color: var(--text);
+    font-size: 0.82rem;
+  }
+  .answer-chip.match .aa    { color: var(--red); }
+  .answer-chip.no-match .aa { color: var(--green); }
+  .answer-chip.followup .aa { color: var(--blue); }
+  .answer-chip.pending .aa  { color: var(--text-3); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  #followup-row {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px 12px;
+  }
+  #followup-row.visible { display: flex; }
+
+  #followup-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  #followup-input:focus { border-color: var(--accent); }
+  #followup-input::placeholder { color: var(--text-3); }
+
+  #followup-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 12px;
+    color: var(--text-2);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  #followup-btn:hover { border-color: var(--accent); color: var(--text); }
+  #followup-btn:disabled { color: var(--text-3); cursor: not-allowed; }
+
+  #inline-stats {
+    padding: 8px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-3);
+    letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .stat-sep { color: var(--border-strong); }
+
+  #alarm-indicator {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    border-radius: 4px;
+    padding: 1px 6px;
+    transition: all 0.3s;
+  }
+  #alarm-indicator.alarm-off  { color: var(--text-3); }
+  #alarm-indicator.alarm-on   { color: var(--red); animation: alarm-blink 0.8s ease-in-out infinite; }
+  @keyframes alarm-blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  #questions-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+
+  .question-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .question-chain { display: flex; flex-direction: column; gap: 6px; }
+  .question-chain-item { display: flex; flex-direction: column; gap: 4px; }
+  .question-chain-item .chain-children {
+    margin-left: 20px;
+    padding-left: 10px;
+    border-left: 2px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .add-followup-btn {
+    background: transparent;
+    border: 1px dashed var(--border);
+    color: var(--text-3);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    padding: 4px 8px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.15s;
+    align-self: flex-start;
+    margin-left: 20px;
+  }
+  .add-followup-btn:hover { border-color: var(--accent); color: var(--text); }
+  .question-row input[type="text"] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .question-row input[type="text"]:not(.match-word):not(.cmd-input) { flex: 1; }
+  .question-row input:focus { border-color: var(--accent); }
+  .question-row input.match-word { max-width: 90px; font-family: 'DM Mono', monospace; font-size: 0.78rem; }
+  .question-row input.cmd-input  { flex-basis: 100%; max-width: none; font-family: 'DM Mono', monospace; font-size: 0.78rem; }
+
+  .del-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-3);
+    font-size: 0.75rem;
+    padding: 5px 9px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.15s;
+  }
+  .del-btn:hover { border-color: var(--red); color: var(--red); }
+
+  .cfg-section {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--text-3);
+    letter-spacing: 0.1em;
+    padding: 14px 16px 6px;
+    text-transform: uppercase;
+  }
+
+  .cfg-row {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    gap: 12px;
+  }
+
+  .cfg-label {
+    font-size: 0.82rem;
+    color: var(--text-2);
+    min-width: 150px;
+  }
+
+  .cfg-row input[type="text"],
+  .cfg-row input[type="number"] {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .cfg-row input:focus { border-color: var(--accent); }
+  .cfg-row input[type="checkbox"] {
+    width: 16px; height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  /* GALERIE */
+  .gallery-day-header {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text-3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 16px 16px 8px;
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+  }
+  .gallery-day-header:first-child { border-top: none; margin-top: 0; }
+
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 0 16px 16px;
+  }
+  @media (max-width: 400px) { .gallery-grid { grid-template-columns: 1fr; } }
+
+  .gallery-item {
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bg);
+    position: relative;
+    cursor: pointer;
+  }
+  .gallery-item img {
+    width: 100%;
+    aspect-ratio: 4/3;
+    object-fit: cover;
+    display: block;
+  }
+  .gallery-meta {
+    padding: 6px 8px;
+  }
+  .gallery-time {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--text-3);
+    letter-spacing: 0.04em;
+    margin-bottom: 3px;
+  }
+  .gallery-qa {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.72rem;
+    color: var(--text-2);
+    line-height: 1.4;
+  }
+  .gallery-qa .qa-q { color: var(--text-3); }
+  .gallery-qa .qa-a { color: var(--red); font-weight: 500; }
+
+  .gallery-item .del-overlay {
+    position: absolute;
+    top: 6px; right: 6px;
+    background: rgba(0,0,0,0.45);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    padding: 3px 7px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .gallery-item:hover .del-overlay { opacity: 1; }
+
+  #gallery-empty {
+    padding: 32px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-3);
+    text-align: center;
+    letter-spacing: 0.06em;
+  }
+
+  .gallery-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px 0;
+  }
+
+  #gallery-reload {
+    background: transparent;
+    border: none;
+    color: var(--text-3);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    cursor: pointer;
+    letter-spacing: 0.06em;
+    transition: color 0.15s;
+  }
+  #gallery-reload:hover { color: var(--text); }
+
+  .gallery-section-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--text-3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 14px 16px 6px;
+  }
+
+  /* MODELS TAB */
+  .models-image-area {
+    width: 100%;
+    aspect-ratio: 4/3;
+    background: var(--bg);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .models-image-area img { width: 100%; height: 100%; object-fit: contain; }
+  .models-image-placeholder { color: var(--text-3); font-family: 'DM Mono', monospace; font-size: 0.75rem; }
+  .models-controls { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .models-source-select {
+    flex: 1;
+    padding: 9px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--text);
+    outline: none;
+  }
+  .mq-chain { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+  .mq-item { display: flex; flex-direction: column; }
+  .mq-row { display: flex; gap: 6px; align-items: center; }
+  .mq-model-sel {
+    padding: 8px 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-2);
+    outline: none;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .mq-model-sel:focus { border-color: var(--accent); }
+  .mq-input {
+    flex: 1;
+    padding: 8px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    color: var(--text);
+    outline: none;
+  }
+  .mq-input:focus { border-color: var(--accent); }
+  .mq-match {
+    width: 68px;
+    padding: 8px 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-2);
+    outline: none;
+    flex-shrink: 0;
+  }
+  .mq-match:focus { border-color: var(--accent); }
+  .mq-ask-btn {
+    padding: 8px 14px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+    transition: opacity 0.15s;
+  }
+  .mq-ask-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .mq-del-btn {
+    padding: 6px 10px;
+    background: transparent;
+    border: none;
+    color: var(--text-3);
+    cursor: pointer;
+    font-size: 1rem;
+    border-radius: 6px;
+    transition: color 0.15s;
+    flex-shrink: 0;
+  }
+  .mq-del-btn:hover { color: var(--red); }
+  .mq-answer {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 5px 12px 2px 2px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.76rem;
+  }
+  .mq-answer-model { color: var(--text-3); flex-shrink: 0; min-width: 50px; }
+  .mq-answer-text { color: var(--text); }
+  .mq-answer.matched .mq-answer-text { color: var(--red); font-weight: 500; }
+  .mq-answer.errored .mq-answer-text { color: var(--red); opacity: 0.65; }
+  .mq-children {
+    margin-left: 20px;
+    border-left: 2px solid var(--border);
+    padding-left: 12px;
+    padding-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .mq-add-followup {
+    display: none;
+    margin: 4px 0 0 2px;
+    padding: 3px 10px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.72rem;
+    color: var(--text-3);
+    cursor: pointer;
+    transition: all 0.15s;
+    align-self: flex-start;
+  }
+  .mq-add-followup:hover { border-color: var(--accent); color: var(--text); }
+  .mq-add-top {
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.78rem;
+    color: var(--text-3);
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.15s;
+    margin-top: 4px;
+  }
+  .mq-add-top:hover { border-color: var(--accent); color: var(--text); }
+  .mq-mode-toggle {
+    display: flex;
+    gap: 2px;
+    background: var(--border);
+    border-radius: 8px;
+    padding: 2px;
+    margin-bottom: 16px;
+  }
+  .mq-mode-btn {
+    flex: 1;
+    padding: 6px 10px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .mq-mode-btn.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  .mq-cmp-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .mq-cmp-input {
+    flex: 1;
+    padding: 9px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    color: var(--text);
+    outline: none;
+  }
+  .mq-cmp-input:focus { border-color: var(--accent); }
+  .mq-cmp-ask {
+    padding: 9px 16px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: opacity 0.15s;
+  }
+  .mq-cmp-ask:disabled { opacity: 0.4; cursor: not-allowed; }
+  .mq-model-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .mq-chip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .mq-chip.selected { border-color: var(--accent); color: var(--text); background: var(--surface); }
+  .mq-cmp-results { display: flex; flex-direction: column; gap: 6px; }
+  .mq-cmp-result {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    background: var(--bg);
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+  }
+  .mq-cmp-result.pending .mq-cmp-ans { color: var(--text-3); animation: pulse 1.2s ease-in-out infinite; }
+  .mq-cmp-name { color: var(--text-3); min-width: 52px; flex-shrink: 0; }
+  .mq-cmp-ans  { color: var(--text); flex: 1; }
+  .mq-cmp-result.errored .mq-cmp-ans { color: var(--red); opacity: 0.7; }
+  #lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 9999;
+    isolation: isolate;
+    flex-direction: column;
+    touch-action: none;
+  }
+  #lightbox.visible { display: flex; }
+
+  #lightbox-img {
+    width: 100%;
+    flex: 1 1 0;
+    min-height: 0;
+    object-fit: contain;
+    display: block;
+    cursor: pointer;
+  }
+
+  #lightbox-meta {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 0.04em;
+    text-align: center;
+    padding: 6px 24px;
+    line-height: 1.5;
+    flex-shrink: 0;
+  }
+
+  #lightbox-close {
+    position: absolute;
+    top: 12px; right: 16px;
+    background: transparent;
+    border: none;
+    color: rgba(255,255,255,0.6);
+    font-size: 1.6rem;
+    cursor: pointer;
+    line-height: 1;
+    z-index: 101;
+  }
+
+  #lightbox-followup {
+    flex-shrink: 0;
+    padding: 8px 16px 24px;
+    background: rgba(0,0,0,0.7);
+    display: none;
+  }
+  #lightbox-followup.visible { display: block; }
+
+  #lightbox-answers {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+  .lb-chip {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+  }
+  .lb-chip .aq { color: rgba(255,255,255,0.4); flex-shrink: 0; }
+  .lb-chip .aa { color: rgba(255,255,255,0.9); }
+  .lb-chip.pending .aa { color: rgba(255,255,255,0.3); animation: pulse 1.2s ease-in-out infinite; }
+
+  #lightbox-input-row {
+    display: flex;
+    gap: 8px;
+  }
+  #lightbox-input {
+    flex: 1;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    padding: 9px 12px;
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    outline: none;
+  }
+  #lightbox-input::placeholder { color: rgba(255,255,255,0.3); }
+  #lightbox-input:focus { border-color: rgba(255,255,255,0.5); }
+  #lightbox-input-row button {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    padding: 9px 14px;
+    color: rgba(255,255,255,0.8);
+    font-size: 0.85rem;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  #lightbox-input-row button:hover { background: rgba(255,255,255,0.2); }
+
+  .spinner {
+    display: inline-block; width: 10px; height: 10px;
+    border: 2px solid var(--border); border-top-color: var(--text-2);
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+</style>
+</head>
+<body>
+
+<header>
+  <h1>vqa / surveillance</h1>
+  <div class="dot" id="status-dot"></div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('monitor', this)">Monitor</button>
+  <button class="tab-btn" onclick="switchTab('settings', this)">Einstellungen</button>
+  <button class="tab-btn" onclick="switchTab('gallery', this); loadGallery()">Galerie</button>
+  <button class="tab-btn" onclick="switchTab('models', this); initModelsTab()">Modelle</button>
+</div>
+
+<!-- MONITOR -->
+<div class="tab-panel active" id="tab-monitor">
+  <div class="grid">
+    <div class="card full">
+      <div id="image-container">
+        <span class="img-placeholder" id="placeholder">Kein Bild</span>
+        <img id="photo" alt="">
+        <div id="alarm-flash"></div>
+      </div>
+      <div class="controls">
+        <button class="btn" id="snap-btn" onclick="captureAndAsk()">Foto aufnehmen</button>
+        <button class="btn start" id="loop-btn" onclick="toggleLoop()">Loop starten</button>
+      </div>
+      <div id="answers-bar"></div>
+      <div id="followup-row">
+        <input type="text" id="followup-input" placeholder="Folgefrage zum Bild...">
+        <button id="followup-btn" onclick="askFollowup()">→</button>
+      </div>
+      <div id="inline-stats">
+        <span id="stat-total">0</span> Aufnahmen
+        <span class="stat-sep">·</span>
+        <span id="stat-saved">0</span> gespeichert
+        <span class="stat-sep">·</span>
+        <span id="stat-runtime">00:00:00</span>
+        <span class="stat-sep">·</span>
+        <span id="stat-last">—</span>
+        <span class="stat-sep">·</span>
+        <span id="alarm-indicator" class="alarm-off">
+          <span id="stat-alarms">0</span> Alarme
+        </span>
+      </div>
+      <div id="questions-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- EINSTELLUNGEN -->
+<div class="tab-panel" id="tab-settings">
+  <div class="card">
+    <div class="cfg-section">Loop</div>
+    <div class="cfg-row">
+      <span class="cfg-label">Intervall (Sekunden)</span>
+      <input type="number" id="cfg-interval" value="5" min="1" max="3600">
+    </div>
+    <div class="cfg-section">Alarm</div>
+    <div class="cfg-row">
+      <span class="cfg-label">Alarm-Ton</span>
+      <input type="checkbox" id="cfg-sound" checked>
+    </div>
+    <div class="cfg-row">
+      <span class="cfg-label">Sounddatei</span>
+      <input type="text" id="cfg-soundfile" value="default_alarm_sound.wav">
+    </div>
+    <div class="cfg-row">
+      <span class="cfg-label">Benachrichtigung</span>
+      <input type="checkbox" id="cfg-notify" checked>
+    </div>
+    <div class="cfg-row">
+      <span class="cfg-label">Bild speichern (Alarm)</span>
+      <input type="checkbox" id="cfg-save" checked>
+    </div>
+    <div class="cfg-section">Aufnahmen</div>
+    <div class="cfg-row">
+      <span class="cfg-label">Alle Aufnahmen speichern</span>
+      <input type="checkbox" id="cfg-save-all">
+    </div>
+    <div class="cfg-section">Server</div>
+    <div class="cfg-row">
+      <span class="cfg-label">Server URL</span>
+      <input type="text" id="cfg-server" value="http://127.0.0.1:5666">
+    </div>
+    <div class="cfg-section">Log</div>
+    <div class="cfg-row">
+      <span class="cfg-label">Max. Log-Zeilen</span>
+      <input type="number" id="cfg-maxlog" value="100" min="10" max="1000">
+    </div>
+  </div>
+</div>
+
+<!-- GALERIE -->
+<div class="tab-panel" id="tab-gallery">
+  <div class="card full">
+    <div class="gallery-toolbar">
+      <button id="gallery-reload" onclick="loadGallery()">↺ neu laden</button>
+    </div>
+    <div class="gallery-section-title">Alarme</div>
+    <div id="gallery-container"></div>
+    <div id="gallery-empty" style="display:none">Keine gespeicherten Alarm-Bilder</div>
+    <div class="gallery-section-title" style="margin-top:24px">Aufnahmen</div>
+    <div id="captures-container"></div>
+    <div id="captures-empty" style="display:none">Keine Aufnahmen vorhanden</div>
+  </div>
+</div>
+
+<!-- MODELLE -->
+<div class="tab-panel" id="tab-models">
+  <div class="card" style="padding: 16px;">
+    <div class="models-image-area" id="models-image-area">
+      <span class="models-image-placeholder">Kein Bild</span>
+    </div>
+    <div class="models-controls">
+      <button class="btn" style="flex:none;padding:9px 14px;border:1px solid var(--border);border-radius:8px;" onclick="modelsTakePhoto()">Foto aufnehmen</button>
+      <select id="models-source-select" class="models-source-select" onchange="mqSelectImage(this)">
+        <option value="">Bild aus Galerie wählen...</option>
+        <optgroup label="Alarme" id="mq-alarm-opts"></optgroup>
+        <optgroup label="Aufnahmen" id="mq-capture-opts"></optgroup>
+      </select>
+    </div>
+
+    <div class="mq-mode-toggle">
+      <button class="mq-mode-btn active" id="mq-btn-chain" onclick="mqSwitchMode('chain')">Kette</button>
+      <button class="mq-mode-btn" id="mq-btn-cmp" onclick="mqSwitchMode('cmp')">Vergleich</button>
+    </div>
+
+    <!-- KETTE -->
+    <div id="mq-panel-chain">
+      <div class="mq-chain" id="mq-chain"></div>
+      <button class="mq-add-top" onclick="mqAddQuestion()">+ Frage hinzufügen</button>
+    </div>
+
+    <!-- VERGLEICH -->
+    <div id="mq-panel-cmp" style="display:none">
+      <div class="mq-cmp-row">
+        <input type="text" class="mq-cmp-input" id="mq-cmp-question" placeholder="Frage eingeben...">
+        <button class="mq-cmp-ask" id="mq-cmp-btn" onclick="mqCmpAsk()">→</button>
+      </div>
+      <div class="mq-model-chips" id="mq-model-chips"></div>
+      <div class="mq-cmp-results" id="mq-cmp-results"></div>
+    </div>
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div id="lightbox" onclick="closeLightbox()">
+  <button id="lightbox-close" onclick="closeLightbox()">×</button>
+  <img id="lightbox-img" src="" alt="" onclick="event.stopPropagation(); toggleLightboxFollowup()">
+  <div id="lightbox-meta"></div>
+  <div id="lightbox-followup" onclick="event.stopPropagation()">
+    <div id="lightbox-answers"></div>
+    <div id="lightbox-input-row">
+      <input type="text" id="lightbox-input" placeholder="Folgefrage zum Bild..."
+        onkeydown="if(event.key==='Enter') lightboxAsk()">
+      <button onclick="lightboxAsk()">→</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let socket = null;
+  let loopRunning = false;
+  let startTime = null;
+  let runtimeTimer = null;
+  let statTotal = 0, statAlarms = 0, statSaved = 0;
+  let hasImage = false;
+  let pendingChips = {};
+
+  function switchTab(name, el) {
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.getElementById("tab-" + name).classList.add("active");
+    el.classList.add("active");
+  }
+
+  function server() { return document.getElementById("cfg-server").value.trim(); }
+
+  function createQuestionItem(q = "", m = "yes", cmd = "", followup = null) {
+    const item = document.createElement("div");
+    item.className = "question-chain-item";
+
+    const row = document.createElement("div");
+    row.className = "question-row";
+    row.innerHTML =
+      '<input type="text" placeholder="What do you see?" value="' + q + '">' +
+      '<input type="text" class="match-word" placeholder="match" value="' + m + '">' +
+      '<input type="text" class="cmd-input" placeholder="cmd bei Match" value="' + cmd + '">' +
+      '<button class="del-btn" onclick="this.closest(\'.question-chain-item\').remove()">×</button>';
+    item.appendChild(row);
+
+    const children = document.createElement("div");
+    children.className = "chain-children";
+    children.style.display = "none";
+    item.appendChild(children);
+
+    const addBtn = document.createElement("button");
+    addBtn.className = "add-followup-btn";
+    addBtn.textContent = "+ Folgefrage";
+    addBtn.onclick = () => {
+      const child = createQuestionItem();
+      children.appendChild(child);
+      children.style.display = "flex";
+      addBtn.style.display = "none";
+    };
+    item.appendChild(addBtn);
+
+    if (followup) {
+      const child = createQuestionItem(
+        followup.question || "",
+        followup.match || "yes",
+        followup.cmd || "",
+        followup.followup || null
+      );
+      children.appendChild(child);
+      children.style.display = "flex";
+      addBtn.style.display = "none";
+    }
+
+    return item;
+  }
+
+  function addQuestion(q = "", m = "yes", cmd = "", followup = null) {
+    const list = document.getElementById("questions-list");
+    list.appendChild(createQuestionItem(q, m, cmd, followup));
+  }
+
+  function getQuestionChain(item) {
+    const inputs = item.querySelector(".question-row").querySelectorAll("input[type='text']");
+    const q   = inputs[0].value.trim();
+    const m   = inputs[1].value.trim() || "";
+    const cmd = inputs[2].value.trim() || "";
+    if (!q) return null;
+    const obj = { question: q, match: m, cmd: cmd };
+    const children = item.querySelector(".chain-children");
+    if (children && children.children.length > 0) {
+      const child = getQuestionChain(children.children[0]);
+      if (child) obj.followup = child;
+    }
+    return obj;
+  }
+
+  function getQuestions() {
+    const result = [];
+    document.querySelectorAll("#questions-list > .question-chain-item").forEach(item => {
+      const obj = getQuestionChain(item);
+      if (obj) result.push(obj);
+    });
+    return result;
+  }
+
+  function updateStats() {
+    document.getElementById("stat-total").textContent  = statTotal;
+    document.getElementById("stat-alarms").textContent = statAlarms;
+    document.getElementById("stat-saved").textContent  = statSaved;
+    const indicator = document.getElementById("alarm-indicator");
+    indicator.className = statAlarms > 0 ? "alarm-on" : "alarm-off";
+  }
+
+  function applyStats(stats) {
+    if (!stats) return;
+    statTotal  = stats.total  || 0;
+    statAlarms = stats.alarms || 0;
+    statSaved  = stats.saved  || 0;
+    updateStats();
+  }
+
+  function startRuntime() {
+    startTime = Date.now();
+    if (runtimeTimer) clearInterval(runtimeTimer);
+    runtimeTimer = setInterval(() => {
+      const s   = Math.floor((Date.now() - startTime) / 1000);
+      const h   = String(Math.floor(s / 3600)).padStart(2, "0");
+      const m   = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+      const sec = String(s % 60).padStart(2, "0");
+      document.getElementById("stat-runtime").textContent = h + ":" + m + ":" + sec;
+    }, 1000);
+  }
+
+  function stopRuntime() { clearInterval(runtimeTimer); }
+
+  function flashAlarm() {
+    const el = document.getElementById("alarm-flash");
+    el.style.opacity = "0.3";
+    setTimeout(() => { el.style.opacity = "0"; }, 300);
+  }
+
+  function notify(title, body) {
+    if (!document.getElementById("cfg-notify").checked) return;
+    if (typeof Notification === "undefined") return;
+    if (Notification.permission === "granted") new Notification(title, { body });
+    else if (Notification.permission !== "denied") {
+      Notification.requestPermission().then(p => { if (p === "granted") new Notification(title, { body }); });
+    }
+  }
+
+  async function checkHealth() {
+    const dot = document.getElementById("status-dot");
+    try {
+      const r = await fetch(server() + "/health");
+      dot.className = r.ok ? (loopRunning ? "dot running" : "dot online") : "dot error";
+    } catch { dot.className = "dot error"; }
+  }
+
+  async function capturePhoto() {
+    const r = await fetch(server() + "/photo", { method: "POST" });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    showLatestImage();
+  }
+
+  function showLatestImage() {
+    const img = document.getElementById("photo");
+    img.src = server() + "/image?t=" + Date.now();
+    img.style.display = "block";
+    document.getElementById("placeholder").style.display = "none";
+    hasImage = true;
+  }
+
+  async function askServer(question) {
+    const r = await fetch(server() + "/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question })
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    return data.answer;
+  }
+
+  function addPendingChip(question, extraClass) {
+    const bar = document.getElementById("answers-bar");
+    const chip = document.createElement("div");
+    chip.className = "answer-chip pending " + (extraClass || "");
+    chip.innerHTML = '<span class="aq">' + question + '</span><span class="aa">···</span>';
+    bar.appendChild(chip);
+    return chip;
+  }
+
+  function resolveChip(chip, answer, finalClass) {
+    chip.className = "answer-chip " + finalClass;
+    chip.querySelector(".aa").textContent = answer;
+  }
+
+  async function saveAlarmImage(question, answer) {
+    try {
+      const r = await fetch(server() + "/save_alarm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, answer })
+      });
+      const data = await r.json();
+      if (data.file) { statSaved++; updateStats(); }
+    } catch (e) {}
+  }
+
+  async function askFollowup() {
+    const input = document.getElementById("followup-input");
+    const btn   = document.getElementById("followup-btn");
+    const q = input.value.trim();
+    if (!q || !hasImage) return;
+    btn.disabled   = true;
+    input.disabled = true;
+    const chip = addPendingChip(q, "followup");
+    input.value = "";
+    try {
+      const answer = await askServer(q);
+      resolveChip(chip, answer, "followup");
+    } catch (e) {
+      resolveChip(chip, "Fehler", "followup");
+    }
+    btn.disabled   = false;
+    input.disabled = false;
+    input.focus();
+  }
+
+  async function evaluateChain(item, depth) {
+    const question = item.question || "";
+    const match    = item.match || "";
+    const cmd      = item.cmd || "";
+    const followup = item.followup || null;
+    const isLeaf   = !followup;
+
+    if (!question) return;
+
+    const chip = addPendingChip(question);
+    chip.style.marginLeft = (depth * 16) + "px";
+    const answer = await askServer(question);
+    const matched = match && answer.includes(match);
+    resolveChip(chip, answer, matched ? "match" : "no-match");
+
+    if (matched) {
+      if (isLeaf) {
+        statAlarms++;
+        updateStats();
+        flashAlarm();
+        notify("Alarm", "Q: " + question + "\nA: " + answer);
+        if (document.getElementById("cfg-save").checked) await saveAlarmImage(question, answer);
+        if (document.getElementById("cfg-sound").checked) {
+          try {
+            await fetch(server() + "/play_sound", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ file: document.getElementById("cfg-soundfile").value.trim() })
+            });
+          } catch {}
+        }
+      }
+      if (cmd) {
+        try {
+          await fetch(server() + "/run_cmd", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ cmd })
+          });
+        } catch {}
+      }
+      if (followup) {
+        await evaluateChain(followup, depth + 1);
+      }
+    }
+  }
+
+  async function captureAndAsk() {
+    if (loopRunning) return;
+    const btn = document.getElementById("snap-btn");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Foto wird aufgenommen...';
+    await new Promise(r => setTimeout(r, 30));
+    const questions = getQuestions();
+    if (questions.length === 0) {
+      btn.disabled = false;
+      btn.textContent = "Foto aufnehmen";
+      return;
+    }
+    document.getElementById("answers-bar").innerHTML = "";
+    try {
+      await capturePhoto();
+      btn.innerHTML = '<span class="spinner"></span>Analyse läuft...';
+      document.getElementById("followup-row").classList.add("visible");
+      statTotal++;
+      updateStats();
+      for (const item of questions) {
+        await evaluateChain(item, 0);
+      }
+      const now = new Date();
+      document.getElementById("stat-last").textContent =
+        String(now.getHours()).padStart(2, "0") + ":" +
+        String(now.getMinutes()).padStart(2, "0") + ":" +
+        String(now.getSeconds()).padStart(2, "0");
+    } catch (e) {
+      const chip = addPendingChip("Fehler");
+      resolveChip(chip, e.message, "match");
+    }
+    btn.disabled = false;
+    btn.textContent = "Foto aufnehmen";
+  }
+
+  document.getElementById("followup-input").addEventListener("keydown", e => {
+    if (e.key === "Enter") askFollowup();
+  });
+
+  // SOCKET.IO
+  function connectSocket() {
+    if (socket) return;
+    socket = io(server(), { transports: ["websocket", "polling"] });
+
+    socket.on("connect", () => {
+      document.getElementById("status-dot").className = loopRunning ? "dot running" : "dot online";
+    });
+    socket.on("disconnect", () => {
+      document.getElementById("status-dot").className = "dot error";
+    });
+
+    socket.on("loop_state", (data) => {
+      loopRunning = !!data.running;
+      const btn = document.getElementById("loop-btn");
+      btn.disabled = false;
+      btn.textContent = loopRunning ? "Loop stoppen" : "Loop starten";
+      btn.className   = loopRunning ? "btn stop" : "btn start";
+      document.getElementById("status-dot").className = loopRunning ? "dot running" : "dot online";
+      applyStats(data.stats);
+      if (loopRunning) startRuntime(); else stopRuntime();
+    });
+
+    socket.on("loop_tick", (data) => {
+      if (data.phase === "capture_done") {
+        showLatestImage();
+        document.getElementById("answers-bar").innerHTML = "";
+        pendingChips = {};
+        applyStats(data.stats);
+        const now = new Date();
+        document.getElementById("stat-last").textContent =
+          String(now.getHours()).padStart(2, "0") + ":" +
+          String(now.getMinutes()).padStart(2, "0") + ":" +
+          String(now.getSeconds()).padStart(2, "0");
+      } else if (data.phase === "error") {
+        const chip = addPendingChip("Fehler");
+        resolveChip(chip, data.message || "Unbekannt", "match");
+      }
+    });
+
+    socket.on("loop_answer", (data) => {
+      const r = data.result;
+      const depth = r.depth || 0;
+      const chip = addPendingChip(r.question);
+      chip.style.marginLeft = (depth * 16) + "px";
+      resolveChip(chip, r.answer, r.matched ? "match" : "no-match");
+      if (r.matched && r.is_leaf) {
+        flashAlarm();
+        notify("Alarm", "Q: " + r.question + "\nA: " + r.answer);
+      }
+      applyStats(data.stats);
+    });
+  }
+
+  function toggleLoop() { loopRunning ? stopLoop() : startLoop(); }
+
+  async function startLoop() {
+    const btn = document.getElementById("loop-btn");
+    btn.innerHTML = '<span class="spinner"></span>Startet...';
+    await new Promise(r => setTimeout(r, 30));
+    const questions = getQuestions();
+    if (questions.length === 0) return;
+    const payload = {
+      questions: questions,
+      interval:  parseInt(document.getElementById("cfg-interval").value) || 5,
+      save:      document.getElementById("cfg-save").checked,
+      save_all:  document.getElementById("cfg-save-all").checked,
+      sound:     document.getElementById("cfg-sound").checked,
+      soundfile: document.getElementById("cfg-soundfile").value.trim(),
+    };
+    try {
+      const r = await fetch(server() + "/loop/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await r.json();
+      if (data.error) {
+        alert("Loop-Start fehlgeschlagen: " + data.error);
+        return;
+      }
+      document.getElementById("answers-bar").innerHTML = "";
+      document.getElementById("followup-row").classList.remove("visible");
+    } catch (e) {
+      alert("Loop-Start fehlgeschlagen: " + e.message);
+    }
+  }
+
+  async function stopLoop() {
+    const btn = document.getElementById("loop-btn");
+    btn.innerHTML = '<span class="spinner"></span>Stoppt...';
+    await new Promise(r => setTimeout(r, 30));
+    try {
+      await fetch(server() + "/loop/stop", { method: "POST" });
+      document.getElementById("followup-row").classList.add("visible");
+    } catch (e) {}
+  }
+
+  // MODELS TAB
+  const MQ_MODELS = ["vilt", "blip", "blip-l", "git", "vbert"];
+  let mqImage    = { type: null, file: null };
+  let mqMode     = "chain";
+  let mqSelected = new Set(["blip"]);
+
+  async function initModelsTab() {
+    const alarmOpts   = document.getElementById("mq-alarm-opts");
+    const captureOpts = document.getElementById("mq-capture-opts");
+    alarmOpts.innerHTML = "";
+    captureOpts.innerHTML = "";
+    try {
+      const [ar, cr] = await Promise.all([
+        fetch(server() + "/alarms"),
+        fetch(server() + "/captures")
+      ]);
+      const ad = await ar.json();
+      const cd = await cr.json();
+      (ad.alarms || []).reverse().forEach(a => {
+        const opt = document.createElement("option");
+        opt.value = a.file;
+        opt.dataset.itype = "alarm";
+        opt.textContent = a.file.replace(".jpg","").replace(/_/g," ");
+        alarmOpts.appendChild(opt);
+      });
+      (cd.files || []).forEach(f => {
+        const opt = document.createElement("option");
+        opt.value = f;
+        opt.dataset.itype = "capture";
+        opt.textContent = f.replace(".jpg","").replace(/_/g," ");
+        captureOpts.appendChild(opt);
+      });
+    } catch {}
+    if (document.getElementById("mq-chain").children.length === 0) mqAddQuestion();
+    mqBuildChips();
+  }
+
+  function mqSwitchMode(mode) {
+    mqMode = mode;
+    document.getElementById("mq-panel-chain").style.display = mode === "chain" ? "block" : "none";
+    document.getElementById("mq-panel-cmp").style.display   = mode === "cmp"   ? "block" : "none";
+    document.getElementById("mq-btn-chain").className = "mq-mode-btn" + (mode === "chain" ? " active" : "");
+    document.getElementById("mq-btn-cmp").className   = "mq-mode-btn" + (mode === "cmp"   ? " active" : "");
+  }
+
+  function mqBuildChips() {
+    const container = document.getElementById("mq-model-chips");
+    container.innerHTML = "";
+    MQ_MODELS.forEach(m => {
+      const chip = document.createElement("div");
+      chip.className = "mq-chip" + (mqSelected.has(m) ? " selected" : "");
+      chip.textContent = m;
+      chip.addEventListener("click", () => {
+        mqSelected.has(m) ? mqSelected.delete(m) : mqSelected.add(m);
+        chip.className = "mq-chip" + (mqSelected.has(m) ? " selected" : "");
+      });
+      container.appendChild(chip);
+    });
+  }
+
+  async function mqCmpAsk() {
+    const question = document.getElementById("mq-cmp-question").value.trim();
+    if (!question || !mqSelected.size) return;
+    const btn = document.getElementById("mq-cmp-btn");
+    btn.disabled = true; btn.textContent = "···";
+    const results = document.getElementById("mq-cmp-results");
+    results.innerHTML = "";
+    let loaded = [];
+    try {
+      const lr = await fetch(server() + "/models");
+      const ld = await lr.json();
+      loaded = ld.loaded || [];
+    } catch {}
+    const rows = {};
+    [...mqSelected].forEach(m => {
+      const row = document.createElement("div");
+      row.className = "mq-cmp-result pending";
+      const name = document.createElement("span"); name.className = "mq-cmp-name"; name.textContent = m;
+      const ans  = document.createElement("span"); ans.className  = "mq-cmp-ans";
+      ans.textContent = loaded.includes(m) ? "···" : "lädt... 0s";
+      row.appendChild(name); row.appendChild(ans);
+      results.appendChild(row);
+      rows[m] = { row, ans, isLoaded: loaded.includes(m) };
+    });
+    for (const m of mqSelected) {
+      const body = { question, model: m };
+      if (mqImage.type === "alarm")   body.alarm_file   = mqImage.file;
+      if (mqImage.type === "capture") body.capture_file = mqImage.file;
+      let _cmpTimer = null;
+      if (!rows[m].isLoaded) {
+        const _t0 = Date.now();
+        rows[m].ans.textContent = "lädt... 0s";
+        _cmpTimer = setInterval(() => { rows[m].ans.textContent = "lädt... " + Math.floor((Date.now() - _t0) / 1000) + "s"; }, 1000);
+      }
+      try {
+        const resp = await fetch(server() + "/ask", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        if (_cmpTimer) clearInterval(_cmpTimer);
+        const data = await resp.json();
+        const answer = data.answer || (resp.status === 409 ? "nicht geladen" : (data.error || "?"));
+        rows[m].row.className = "mq-cmp-result" + (!data.answer ? " errored" : "");
+        rows[m].ans.textContent = answer;
+      } catch (e) {
+        if (_cmpTimer) clearInterval(_cmpTimer);
+        rows[m].row.className = "mq-cmp-result errored";
+        rows[m].ans.textContent = "Fehler";
+      }
+    }
+    btn.disabled = false; btn.textContent = "→";
+  }
+
+  async function modelsTakePhoto() {
+    const area = document.getElementById("models-image-area");
+    area.innerHTML = '<span class="models-image-placeholder">Aufnahme...</span>';
+    try {
+      await fetch(server() + "/photo", { method: "POST" });
+      mqImage = { type: "current", file: null };
+      const img = document.createElement("img");
+      img.src = server() + "/image?t=" + Date.now();
+      area.innerHTML = "";
+      area.appendChild(img);
+      document.getElementById("models-source-select").value = "";
+    } catch {
+      area.innerHTML = '<span class="models-image-placeholder">Fehler</span>';
+    }
+  }
+
+  function mqSelectImage(sel) {
+    const opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value) return;
+    mqImage = { type: opt.dataset.itype, file: opt.value };
+    const endpoint = opt.dataset.itype === "alarm" ? "alarms" : "captures";
+    const url = server() + "/" + endpoint + "/" + encodeURIComponent(opt.value);
+    const area = document.getElementById("models-image-area");
+    const img = document.createElement("img");
+    img.src = url;
+    area.innerHTML = "";
+    area.appendChild(img);
+  }
+
+  function mqMakeModelSel() {
+    const sel = document.createElement("select");
+    sel.className = "mq-model-sel";
+    MQ_MODELS.forEach(m => {
+      const opt = document.createElement("option");
+      opt.value = m;
+      opt.textContent = m;
+      if (m === "blip") opt.selected = true;
+      sel.appendChild(opt);
+    });
+    return sel;
+  }
+
+  function mqAddQuestion(parentChain, depth) {
+    const chain = parentChain || document.getElementById("mq-chain");
+    const d = depth || 0;
+    const item = document.createElement("div");
+    item.className = "mq-item";
+
+    const row = document.createElement("div");
+    row.className = "mq-row";
+
+    const modelSel   = mqMakeModelSel();
+    const qInput     = document.createElement("input");
+    qInput.type      = "text";
+    qInput.className = "mq-input";
+    qInput.placeholder = "Frage...";
+
+    const matchInput     = document.createElement("input");
+    matchInput.type      = "text";
+    matchInput.className = "mq-match";
+    matchInput.placeholder = "match";
+    matchInput.title = "Antwort muss dieses Wort enthalten";
+
+    const askBtn       = document.createElement("button");
+    askBtn.className   = "mq-ask-btn";
+    askBtn.textContent = "→";
+
+    const delBtn       = document.createElement("button");
+    delBtn.className   = "mq-del-btn";
+    delBtn.textContent = "×";
+    delBtn.onclick = () => item.remove();
+
+    row.appendChild(modelSel);
+    row.appendChild(qInput);
+    row.appendChild(matchInput);
+    row.appendChild(askBtn);
+    row.appendChild(delBtn);
+    item.appendChild(row);
+
+    const answerEl = document.createElement("div");
+    answerEl.className = "mq-answer";
+    answerEl.style.display = "none";
+    item.appendChild(answerEl);
+
+    const children = document.createElement("div");
+    children.className = "mq-children";
+    children.style.display = "none";
+    item.appendChild(children);
+
+    const addFollowupBtn       = document.createElement("button");
+    addFollowupBtn.className   = "mq-add-followup";
+    addFollowupBtn.textContent = "+ Folgefrage";
+    addFollowupBtn.onclick = () => {
+      children.style.display = "flex";
+      children.style.flexDirection = "column";
+      mqAddQuestion(children, d + 1);
+      addFollowupBtn.style.display = "none";
+    };
+    item.appendChild(addFollowupBtn);
+
+    const doAsk = async () => {
+      const question = qInput.value.trim();
+      const model    = modelSel.value;
+      const matchWord = matchInput.value.trim().toLowerCase();
+      if (!question) { qInput.focus(); return; }
+
+      askBtn.disabled    = true;
+      askBtn.textContent = "···";
+      addFollowupBtn.style.display = "none";
+
+      let loaded = [];
+      try {
+        const lr = await fetch(server() + "/models");
+        const ld = await lr.json();
+        loaded = ld.loaded || [];
+      } catch {}
+      let _loadTimer = null;
+      if (!loaded.includes(model)) {
+        answerEl.className = "mq-answer";
+        answerEl.style.display = "flex";
+        answerEl.innerHTML = "";
+        const tag = document.createElement("span"); tag.className = "mq-answer-model"; tag.textContent = model;
+        const txt = document.createElement("span"); txt.className = "mq-answer-text";
+        txt.style.color = "var(--text-3)";
+        const _t0 = Date.now();
+        txt.textContent = "lädt... 0s";
+        _loadTimer = setInterval(() => { txt.textContent = "lädt... " + Math.floor((Date.now() - _t0) / 1000) + "s"; }, 1000);
+        answerEl.appendChild(tag); answerEl.appendChild(txt);
+      } else {
+        answerEl.style.display = "none";
+      }
+
+      const body = { question, model };
+      if (mqImage.type === "alarm")   body.alarm_file   = mqImage.file;
+      if (mqImage.type === "capture") body.capture_file = mqImage.file;
+
+      try {
+        const resp = await fetch(server() + "/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        if (_loadTimer) clearInterval(_loadTimer);
+        const data   = await resp.json();
+        const answer = data.answer || (resp.status === 409
+          ? "Modell '" + model + "' nicht geladen"
+          : (data.error || "?"));
+        const matched = matchWord && answer.toLowerCase().includes(matchWord);
+        const hasErr  = !data.answer;
+
+        answerEl.className    = "mq-answer" + (matched ? " matched" : hasErr ? " errored" : "");
+        answerEl.style.display = "flex";
+        answerEl.innerHTML    = "";
+        const tag = document.createElement("span");
+        tag.className   = "mq-answer-model";
+        tag.textContent = data.model || model;
+        const txt = document.createElement("span");
+        txt.className   = "mq-answer-text";
+        txt.textContent = answer;
+        answerEl.appendChild(tag);
+        answerEl.appendChild(txt);
+
+        addFollowupBtn.style.display = "inline-block";
+      } catch (e) {
+        if (_loadTimer) clearInterval(_loadTimer);
+        answerEl.className     = "mq-answer errored";
+        answerEl.style.display = "flex";
+        answerEl.textContent   = "Fehler: " + e.message;
+      }
+
+      askBtn.disabled    = false;
+      askBtn.textContent = "→";
+    };
+
+    askBtn.onclick = doAsk;
+    qInput.addEventListener("keydown", e => { if (e.key === "Enter") doAsk(); });
+
+    chain.appendChild(item);
+    qInput.focus();
+    return item;
+  }
+  function formatDay(ts) {
+    if (!ts) return "Unbekannt";
+    const d = new Date(ts);
+    return d.toLocaleDateString("de-DE", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  }
+
+  function formatTime(ts) {
+    if (!ts) return "";
+    const d = new Date(ts);
+    return String(d.getHours()).padStart(2, "0") + ":" +
+           String(d.getMinutes()).padStart(2, "0") + ":" +
+           String(d.getSeconds()).padStart(2, "0");
+  }
+
+  function dayKey(ts) {
+    if (!ts) return "unbekannt";
+    return new Date(ts).toISOString().slice(0, 10);
+  }
+
+  function buildDayGroups(container, items, buildItem) {
+    let currentDay = null;
+    let grid = null;
+    for (const item of items) {
+      const dk = dayKey(item._ts || "");
+      if (dk !== currentDay) {
+        currentDay = dk;
+        const header = document.createElement("div");
+        header.className = "gallery-day-header";
+        header.textContent = item._ts ? formatDay(item._ts) : "Unbekannt";
+        container.appendChild(header);
+        grid = document.createElement("div");
+        grid.className = "gallery-grid";
+        container.appendChild(grid);
+      }
+      grid.appendChild(buildItem(item));
+    }
+  }
+
+  async function loadGallery() {
+    await Promise.all([loadAlarms(), loadCaptures()]);
+  }
+
+  async function loadAlarms() {
+    const container = document.getElementById("gallery-container");
+    const empty     = document.getElementById("gallery-empty");
+    container.innerHTML = '<div style="padding:16px;font-family:\'DM Mono\',monospace;font-size:0.72rem;color:var(--text-3)">Lade...</div>';
+    empty.style.display = "none";
+    try {
+      const r    = await fetch(server() + "/alarms");
+      const data = await r.json();
+      container.innerHTML = "";
+      const alarms = (data.alarms || []).reverse().map(a => ({ ...a, _ts: a.timestamp }));
+      if (alarms.length === 0) { empty.style.display = "block"; return; }
+      buildDayGroups(container, alarms, (alarm) => {
+        const url      = server() + "/alarms/" + encodeURIComponent(alarm.file);
+        const timeStr  = formatTime(alarm.timestamp);
+        const question = alarm.question || "";
+        const answer   = alarm.answer || "";
+        const chain    = alarm.chain || [];
+        const item     = document.createElement("div");
+        item.className = "gallery-item";
+
+        const img = document.createElement("img");
+        img.src     = url;
+        img.loading = "lazy";
+        img.addEventListener("click", () =>
+          openLightbox(url, timeStr, question, answer, alarm.file));
+        item.appendChild(img);
+
+        const meta = document.createElement("div");
+        meta.className = "gallery-meta";
+        const timeEl = document.createElement("div");
+        timeEl.className = "gallery-time";
+        timeEl.textContent = timeStr;
+        meta.appendChild(timeEl);
+
+        const addQaRow = (q, a, color, indent) => {
+          const row = document.createElement("div");
+          row.className = "gallery-qa";
+          if (indent) row.style.marginLeft = indent + "px";
+          const qEl = document.createElement("span"); qEl.className = "qa-q"; qEl.textContent = q;
+          const sep = document.createTextNode(" → ");
+          const aEl = document.createElement("span"); aEl.className = "qa-a";
+          if (color) aEl.style.color = color;
+          aEl.textContent = a;
+          row.appendChild(qEl); row.appendChild(sep); row.appendChild(aEl);
+          meta.appendChild(row);
+        };
+
+        if (chain.length > 0) {
+          chain.forEach((c, i) => addQaRow(c.question, c.answer,
+            i === chain.length - 1 ? "var(--red)" : "var(--blue)", i * 8));
+        } else if (question) {
+          addQaRow(question, answer, null, 0);
+        }
+        (alarm.followups || []).forEach(f => addQaRow(f.question, f.answer, "var(--blue)", 0));
+        item.appendChild(meta);
+
+        const delBtn = document.createElement("button");
+        delBtn.className = "del-overlay";
+        delBtn.textContent = "×";
+        delBtn.addEventListener("click", () => deleteAlarm(alarm.file, delBtn));
+        item.appendChild(delBtn);
+
+        return item;
+      });
+    } catch (e) {
+      container.innerHTML = '<div style="padding:16px;font-family:\'DM Mono\',monospace;font-size:0.72rem;color:var(--red)">Fehler beim Laden</div>';
+    }
+  }
+
+  async function loadCaptures() {
+    const container = document.getElementById("captures-container");
+    const empty     = document.getElementById("captures-empty");
+    container.innerHTML = '<div style="padding:16px;font-family:\'DM Mono\',monospace;font-size:0.72rem;color:var(--text-3)">Lade...</div>';
+    empty.style.display = "none";
+    try {
+      const r    = await fetch(server() + "/captures");
+      const data = await r.json();
+      container.innerHTML = "";
+      const files = (data.files || []);
+      if (files.length === 0) { empty.style.display = "block"; return; }
+      // Timestamp aus Dateiname: 00001_20260510_001503.jpg
+      const items = files.map(f => {
+        let ts = null;
+        const parts = f.replace(".jpg", "").split("_");
+        if (parts.length >= 3) {
+          try {
+            const d = parts[1], t = parts[2];
+            ts = new Date(
+              d.slice(0,4) + "-" + d.slice(4,6) + "-" + d.slice(6,8) + "T" +
+              t.slice(0,2) + ":" + t.slice(2,4) + ":" + t.slice(4,6)
+            ).toISOString();
+          } catch {}
+        }
+        return { file: f, _ts: ts };
+      });
+      buildDayGroups(container, items, (capture) => {
+        const url     = server() + "/captures/" + encodeURIComponent(capture.file);
+        const timeStr = formatTime(capture._ts);
+        const item    = document.createElement("div");
+        item.className = "gallery-item";
+
+        const img = document.createElement("img");
+        img.src     = url;
+        img.loading = "lazy";
+        img.addEventListener("click", () => openLightbox(url, timeStr, "", ""));
+        item.appendChild(img);
+
+        const meta = document.createElement("div");
+        meta.className = "gallery-meta";
+        const timeEl = document.createElement("div");
+        timeEl.className = "gallery-time";
+        timeEl.textContent = timeStr;
+        meta.appendChild(timeEl);
+        item.appendChild(meta);
+
+        return item;
+      });
+    } catch (e) {
+      container.innerHTML = '<div style="padding:16px;font-family:\'DM Mono\',monospace;font-size:0.72rem;color:var(--red)">Fehler beim Laden</div>';
+    }
+  }
+
+  async function deleteAlarm(filename, btn) {
+    btn.textContent = "…";
+    try {
+      const r    = await fetch(server() + "/alarms/" + filename, { method: "DELETE" });
+      const data = await r.json();
+      if (data.status === "ok") {
+        const item = btn.closest(".gallery-item");
+        const grid = item.parentElement;
+        item.remove();
+        if (grid && grid.children.length === 0) {
+          const header = grid.previousElementSibling;
+          grid.remove();
+          if (header && header.classList.contains("gallery-day-header")) header.remove();
+        }
+        const container = document.getElementById("gallery-container");
+        if (!container.querySelector(".gallery-item")) {
+          document.getElementById("gallery-empty").style.display = "block";
+        }
+      }
+    } catch (e) { btn.textContent = "×"; }
+  }
+
+  let lightboxFile = null;
+
+  function openLightbox(url, time, question, answer, filename) {
+    lightboxFile = filename || null;
+    document.getElementById("lightbox-img").src = url;
+    let meta = time;
+    if (question) meta += "\n" + question + " → " + answer;
+    document.getElementById("lightbox-meta").textContent = meta;
+    document.getElementById("lightbox-answers").innerHTML = "";
+    document.getElementById("lightbox-input").value = "";
+    document.getElementById("lightbox-followup").classList.remove("visible");
+    document.getElementById("lightbox").classList.add("visible");
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeLightbox() {
+    document.getElementById("lightbox").classList.remove("visible");
+    document.getElementById("lightbox-followup").classList.remove("visible");
+    document.body.style.overflow = "";
+    lightboxFile = null;
+  }
+
+  function toggleLightboxFollowup() {
+    document.getElementById("lightbox-followup").classList.toggle("visible");
+    if (document.getElementById("lightbox-followup").classList.contains("visible")) {
+      setTimeout(() => document.getElementById("lightbox-input").focus(), 50);
+    }
+  }
+
+  async function lightboxAsk() {
+    const input = document.getElementById("lightbox-input");
+    const q = input.value.trim();
+    if (!q) return;
+    const answers = document.getElementById("lightbox-answers");
+    input.disabled = true;
+    const chip = document.createElement("div");
+    chip.className = "lb-chip pending";
+    chip.innerHTML = '<span class="aq">' + q + '</span><span class="aa">···</span>';
+    answers.appendChild(chip);
+    input.value = "";
+    try {
+      const body = { question: q };
+      if (lightboxFile) body.alarm_file = lightboxFile;
+      const r = await fetch(server() + "/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const data = await r.json();
+      const answer = data.answer || data.error || "?";
+      chip.className = "lb-chip";
+      chip.querySelector(".aa").textContent = answer;
+      if (lightboxFile) loadAlarms();
+    } catch (e) {
+      chip.className = "lb-chip";
+      chip.querySelector(".aa").textContent = "Fehler";
+    }
+    input.disabled = false;
+    input.focus();
+  }
+
+  addQuestion("Do you see green", "yes", "");
+  checkHealth();
+  setInterval(checkHealth, 10000);
+  connectSocket();
+  if (typeof Notification !== "undefined") Notification.requestPermission();
+</script>
+</body>
+</html>
+
+
+
+./vqa_ai_cam.py:
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# vqa_ai_cam.py
+#
+# VQA-Cam – visual question answering for surveillance and automation
+#
+# Modes:
+#   ask      – single-shot Q&A, exit 0=match, 1=no match (scriptable)
+#   single   – analyze image interactively with followup questions
+#   loop     – continuous capture with rule chain, alarms, commands
+#   gallery  – browse saved alarm images in terminal
+#   server   – start Flask/Socket.IO web server with browser UI
+#   config   – show or init config file
+#
+# Config file: ~/vqa_ai_cam/config/vqa-ai-cam.json
+#
+# Usage:
+#   python3 vqa_ai_cam.py ask "Do you see a human?" yes --image foto.jpg
+#   python3 vqa_ai_cam.py single --camera termux --timg
+#   python3 vqa_ai_cam.py loop --camera termux --interval 10 --config questions.json --save
+#   python3 vqa_ai_cam.py gallery --timg --interactive
+#   python3 vqa_ai_cam.py server
+#   python3 vqa_ai_cam.py server --port 5666 --model blip
+#   python3 vqa_ai_cam.py config init
+#   python3 vqa_ai_cam.py config show
+
+import sys
+import os
+import argparse
+import subprocess
+import threading
+import shutil
+import time
+import json
+import signal
+from datetime import datetime
+
+os.environ["HF_HUB_DISABLE_XET"] = "1"
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+
+from vqa_cam import config as vqa_config
+from vqa_cam import models as vqa_models
+from vqa_cam import camera as vqa_camera
+from vqa_cam import storage as vqa_storage
+from vqa_cam import chain as vqa_chain
+
+# ── ANSI ─────────────────────────────────────────────────────────────────────
+
+RED   = "\033[91m"
+GREEN = "\033[92m"
+BLUE  = "\033[94m"
+GRAY  = "\033[90m"
+BOLD  = "\033[1m"
+RESET = "\033[0m"
+
+
+# ── CLI Modes ─────────────────────────────────────────────────────────────────
+
+def mode_ask(args, cfg):
+    if not os.path.exists(args.image):
+        print("error: image not found: " + args.image, file=sys.stderr)
+        sys.exit(2)
+    try:
+        vqa_models.init_model(cfg["model"], cfg["model_dir"], quiet=args.quiet)
+        answer = vqa_models.run_vqa(args.image, args.question)
+    except Exception as e:
+        print("error: " + str(e), file=sys.stderr)
+        sys.exit(2)
+    matched = args.match.strip().lower() in answer.strip().lower()
+    if not args.quiet:
+        print(answer)
+        print("true" if matched else "false")
+    if matched and args.cmd:
+        subprocess.run(args.cmd, shell=True)
+    sys.exit(0 if matched else 1)
+
+
+def mode_single(args, cfg):
+    image_path = args.image
+    if not image_path:
+        camera_cmd = vqa_camera.resolve_camera(args.camera)
+        image_path = cfg["image_path"]
+        print(GRAY + "Taking photo..." + RESET)
+        if not vqa_camera.take_photo(camera_cmd, image_path):
+            print(RED + "Error: could not take photo" + RESET)
+            sys.exit(2)
+    if not os.path.exists(image_path):
+        print(RED + "Error: image not found: " + image_path + RESET)
+        sys.exit(2)
+    vqa_models.init_model(cfg["model"], cfg["model_dir"])
+    vqa_camera.show_image(image_path, args.timg)
+    questions = vqa_chain.load_questions(args)
+    if questions:
+        chain_cfg = {"save": args.save, "soundfile": "",
+                     "alarm_dir": cfg["alarm_dir"], "capture_limit": cfg["capture_limit"]}
+        for item in questions:
+            vqa_chain.evaluate_chain(item, image_path, chain_cfg, timg=args.timg)
+    print("\n" + GRAY + "Ask followup questions (empty to quit):" + RESET)
+    while True:
+        try:
+            q = input(BLUE + "? " + RESET).strip()
+        except (EOFError, KeyboardInterrupt):
+            break
+        if not q:
+            break
+        print(GRAY + q + RESET + " ", end="", flush=True)
+        try:
+            print(GREEN + vqa_models.run_vqa(image_path, q) + RESET)
+        except Exception as e:
+            print(RED + "Error: " + str(e) + RESET)
+
+
+def mode_loop(args, cfg):
+    camera_cmd = vqa_camera.resolve_camera(args.camera)
+    questions  = vqa_chain.load_questions(args)
+    if not questions:
+        print(RED + "Error: provide --config or --question" + RESET)
+        sys.exit(2)
+
+    vqa_models.init_model(cfg["model"], cfg["model_dir"])
+
+    chain_cfg = {
+        "save":          args.save,
+        "soundfile":     args.sound or "",
+        "save_all":      args.save_all,
+        "alarm_dir":     cfg["alarm_dir"],
+        "capture_dir":   cfg["capture_dir"],
+        "capture_limit": cfg["capture_limit"],
+    }
+
+    image_path      = cfg["image_path"]
+    image_path_next = image_path.replace(".jpg", "_next.jpg")
+    running = True
+    total   = 0
+    alarms  = 0
+
+    def handle_exit(sig, frame):
+        nonlocal running
+        running = False
+
+    signal.signal(signal.SIGINT, handle_exit)
+    signal.signal(signal.SIGTERM, handle_exit)
+
+    print(BOLD + "VQA-Cam Loop" + RESET + "  –  Ctrl+C to stop")
+    print(GRAY + "Camera  : " + camera_cmd + RESET)
+    print(GRAY + "Interval: " + str(args.interval) + "s" + RESET)
+    print(GRAY + "Model   : " + cfg["model"] + RESET)
+    print()
+
+    print(GRAY + "Taking first photo..." + RESET)
+    if not vqa_camera.take_photo(camera_cmd, image_path):
+        print(RED + "Error: could not take photo" + RESET)
+        sys.exit(2)
+
+    while running:
+        cycle_start = time.time()
+        total += 1
+        ts = datetime.now().strftime("%H:%M:%S")
+        print(BOLD + "[" + ts + "] #" + str(total) + RESET)
+
+        vqa_camera.show_image(image_path, args.timg)
+
+        if chain_cfg["save_all"]:
+            vqa_storage.save_capture(chain_cfg, image_path)
+
+        next_result = [False]
+        def _take_next():
+            next_result[0] = vqa_camera.take_photo(camera_cmd, image_path_next)
+        next_thread = threading.Thread(target=_take_next, daemon=True)
+        next_thread.start()
+
+        for item in questions:
+            results = vqa_chain.evaluate_chain(item, image_path, chain_cfg, timg=args.timg)
+            if any(r.get("matched") and r.get("is_leaf") for r in results):
+                alarms += 1
+
+        next_thread.join()
+        if next_result[0] and os.path.exists(image_path_next):
+            time.sleep(0.3)
+            shutil.move(image_path_next, image_path)
+
+        elapsed = time.time() - cycle_start
+        rest    = args.interval - elapsed
+        if rest > 0 and running:
+            time.sleep(rest)
+
+    print("\n" + BOLD + "Stopped." + RESET +
+          "  Total: " + str(total) + "  Alarms: " + str(alarms))
+
+
+def mode_gallery(args, cfg):
+    alarm_dir = cfg["alarm_dir"]
+    alarms    = vqa_storage.load_alarms(alarm_dir)
+    if not alarms:
+        print(GRAY + "No alarms saved." + RESET)
+        return
+
+    files = sorted([a["file"] for a in alarms], reverse=True)
+    alarm_map = {a["file"]: a for a in alarms}
+
+    print(BOLD + "Alarm Gallery" + RESET + "  (" + str(len(files)) + " images)\n")
+
+    for i, filename in enumerate(files):
+        jpg      = os.path.join(alarm_dir, filename)
+        meta     = alarm_map[filename]
+        ts       = filename.replace(".jpg", "").replace("_", " ")
+        print(BOLD + str(i + 1) + ". " + ts + RESET)
+        chain = meta.get("chain", [])
+        if chain:
+            for j, c in enumerate(chain):
+                color = RED if c.get("matched") else GREEN
+                print("  " + "  " * j + GRAY + c["question"] + RESET + " → " + color + c["answer"] + RESET)
+        elif meta.get("question"):
+            print("  " + GRAY + meta["question"] + RESET + " → " + RED + meta["answer"] + RESET)
+        for fu in meta.get("followups", []):
+            print("  " + BLUE + fu["question"] + RESET + " → " + BLUE + fu["answer"] + RESET)
+
+        vqa_camera.show_image(jpg, args.timg)
+        print()
+
+        if args.interactive:
+            try:
+                cmd = input(GRAY + "  [Enter=next  q=quit  d=delete] " + RESET).strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                break
+            if cmd == "q":
+                break
+            elif cmd == "d":
+                os.remove(jpg)
+                jpath = jpg.replace(".jpg", ".json")
+                if os.path.exists(jpath):
+                    os.remove(jpath)
+                print(GRAY + "  deleted." + RESET)
+
+
+def mode_config(args, cfg):
+    if args.action == "init":
+        vqa_config.init()
+    elif args.action == "show":
+        print(json.dumps(cfg, indent=2))
+    elif args.action == "purge-model":
+        model     = cfg["model"]
+        model_dir = cfg["model_dir"]
+        print(GRAY + "Purging model: " + BOLD + model + RESET)
+        print(GRAY + "  dir: " + model_dir + RESET)
+        removed, tmp_count = vqa_config.purge_model(model, model_dir)
+        if removed:
+            for p in removed:
+                print(GREEN + "Removed: " + RESET + p)
+        if tmp_count:
+            print(GREEN + "Cleaned " + str(tmp_count) + " incomplete temp file(s)." + RESET)
+        if not removed and not tmp_count:
+            print(GRAY + "Nothing to remove." + RESET)
+
+
+# ── Server mode ───────────────────────────────────────────────────────────────
+
+def mode_server(args, cfg):
+    import eventlet
+    import eventlet.tpool
+    from flask import Flask, request, jsonify, send_file
+    from flask_cors import CORS
+    from flask_socketio import SocketIO, emit
+
+    IMAGE_PATH      = cfg["image_path"]
+    IMAGE_PATH_NEXT = IMAGE_PATH.replace(".jpg", "_next.jpg")
+    ALARM_DIR       = cfg["alarm_dir"]
+    CAPTURE_DIR     = cfg["capture_dir"]
+    SOUND_DIR       = cfg["sound_dir"]
+    HTML_PATH       = cfg["html_path"]
+    HOST            = cfg["host"]
+    PORT            = cfg["port"]
+    CAP_LIMIT       = cfg["capture_limit"]
+
+    os.makedirs(os.path.dirname(IMAGE_PATH), exist_ok=True)
+
+    app      = Flask(__name__)
+    CORS(app)
+    socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
+
+    vqa_models.init_model(cfg["model"], cfg["model_dir"])
+
+    loop_thread        = None
+    loop_running       = False
+    loop_lock          = threading.Lock()
+    loop_config        = {"interval": 5, "questions": [], "save": True,
+                          "save_all": False, "sound": True, "soundfile": "default_alarm_sound.wav"}
+    loop_stats         = {"total": 0, "alarms": 0, "saved": 0,
+                          "last_capture": None, "started_at": None}
+
+    def srv_take_photo(path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        before = os.path.getmtime(path) if os.path.exists(path) else 0
+        result = subprocess.run(f"termux-camera-photo -c 2 {path}", shell=True)
+        if result.returncode != 0:
+            return False
+        after = os.path.getmtime(path) if os.path.exists(path) else 0
+        return after > before
+
+    def srv_save_alarm(question, answer, chain=None):
+        if not os.path.exists(IMAGE_PATH):
+            return None
+        alarm_cfg = {"alarm_dir": ALARM_DIR}
+        full_chain = chain or [{"question": question, "answer": answer, "matched": True}]
+        dest = eventlet.tpool.execute(vqa_storage.save_alarm, alarm_cfg, IMAGE_PATH, full_chain)
+        return os.path.basename(dest) if dest else None
+
+    def srv_save_capture():
+        if not os.path.exists(IMAGE_PATH):
+            return None
+        cap_cfg = {"capture_dir": CAPTURE_DIR, "capture_limit": CAP_LIMIT}
+        dest = eventlet.tpool.execute(vqa_storage.save_capture, cap_cfg, IMAGE_PATH)
+        return os.path.basename(dest) if dest else None
+
+    def srv_play_sound(soundfile):
+        path = os.path.join(SOUND_DIR, soundfile)
+        if not os.path.exists(path):
+            return False
+        eventlet.tpool.execute(subprocess.run, ["play-audio", path])
+        return True
+
+    def srv_evaluate_chain(item, srv_cfg, depth=0, chain_so_far=None):
+        if chain_so_far is None:
+            chain_so_far = []
+        question   = item.get("question", "").strip()
+        match_word = item.get("match", "").strip()
+        cmd        = item.get("cmd", "").strip()
+        followup   = item.get("followup")
+        is_leaf    = followup is None
+        if not question:
+            return []
+        try:
+            answer = eventlet.tpool.execute(vqa_models.run_vqa, IMAGE_PATH, question)
+        except Exception as e:
+            answer = "Fehler: " + str(e)
+        matched = bool(match_word) and (match_word in answer)
+        entry   = {"question": question, "answer": answer, "matched": matched,
+                   "depth": depth, "is_leaf": is_leaf}
+        current_chain = chain_so_far + [{"question": question, "answer": answer, "matched": matched}]
+        socketio.emit("loop_answer", {"result": entry, "stats": dict(loop_stats)})
+        results = [entry]
+        if matched:
+            if is_leaf:
+                loop_stats["alarms"] += 1
+                if srv_cfg["save"]:
+                    saved = srv_save_alarm(question, answer, chain=current_chain)
+                    if saved:
+                        loop_stats["saved"] += 1
+                        entry["saved_file"] = saved
+                if srv_cfg["sound"]:
+                    srv_play_sound(srv_cfg["soundfile"])
+            if cmd:
+                try:
+                    eventlet.tpool.execute(subprocess.run, cmd, shell=True)
+                except Exception as e:
+                    entry["cmd_error"] = str(e)
+            if followup:
+                results.extend(srv_evaluate_chain(followup, srv_cfg, depth + 1, current_chain))
+        return results
+
+    def loop_worker():
+        nonlocal loop_running
+        while True:
+            with loop_lock:
+                if not loop_running:
+                    break
+                srv_cfg = dict(loop_config)
+                srv_cfg["questions"] = list(loop_config["questions"])
+            socketio.emit("loop_tick", {"phase": "capture_start"})
+            cycle_start = time.time()
+            ok = eventlet.tpool.execute(srv_take_photo, IMAGE_PATH)
+            if not ok:
+                socketio.emit("loop_tick", {"phase": "error", "message": "Kamera nicht erreichbar"})
+                eventlet.sleep(srv_cfg["interval"])
+                continue
+            eventlet.sleep(0.5)
+            loop_stats["total"] += 1
+            loop_stats["last_capture"] = datetime.now().isoformat()
+            if srv_cfg["save_all"]:
+                eventlet.tpool.execute(srv_save_capture)
+            socketio.emit("loop_tick", {
+                "phase": "capture_done",
+                "image_url": "/image?t=" + str(int(time.time() * 1000)),
+                "stats": dict(loop_stats),
+            })
+            next_result = [False]
+            def _take_next():
+                next_result[0] = eventlet.tpool.execute(srv_take_photo, IMAGE_PATH_NEXT)
+            next_greenlet = eventlet.spawn(_take_next)
+            results   = []
+            any_match = False
+            for item in srv_cfg["questions"]:
+                chain_results = srv_evaluate_chain(item, srv_cfg)
+                results.extend(chain_results)
+                if any(r.get("matched") and r.get("is_leaf") for r in chain_results):
+                    any_match = True
+            next_greenlet.wait()
+            if next_result[0] and os.path.exists(IMAGE_PATH_NEXT):
+                eventlet.sleep(0.3)
+                shutil.move(IMAGE_PATH_NEXT, IMAGE_PATH)
+            socketio.emit("loop_tick", {"phase": "cycle_done", "any_match": any_match,
+                                        "results": results, "stats": dict(loop_stats)})
+            elapsed = time.time() - cycle_start
+            rest    = srv_cfg["interval"] - elapsed
+            slept   = 0.0
+            while slept < rest:
+                eventlet.sleep(0.2)
+                slept += 0.2
+                with loop_lock:
+                    if not loop_running:
+                        break
+        socketio.emit("loop_state", {"running": False, "stats": dict(loop_stats)})
+
+    @app.route("/")
+    def index():
+        if not os.path.exists(HTML_PATH):
+            return "HTML not found: " + HTML_PATH, 404
+        return send_file(HTML_PATH, mimetype="text/html")
+
+    @app.route("/health")
+    def health():
+        return jsonify({"status": "ok", "loop_running": loop_running, "model": cfg["model"]})
+
+    @app.route("/photo", methods=["POST"])
+    def photo():
+        if not eventlet.tpool.execute(srv_take_photo, IMAGE_PATH):
+            return jsonify({"error": "Camera not available"}), 500
+        return jsonify({"status": "ok"})
+
+    @app.route("/image")
+    def image():
+        if not os.path.exists(IMAGE_PATH):
+            return jsonify({"error": "No image"}), 404
+        return send_file(IMAGE_PATH, mimetype="image/jpeg")
+
+    @app.route("/ask", methods=["POST"])
+    def ask():
+        data = request.get_json()
+        if not data or "question" not in data:
+            return jsonify({"error": "question required"}), 400
+        requested_model = (data.get("model") or "").lower() or None
+        if requested_model and requested_model not in vqa_models.loaded_models():
+            try:
+                eventlet.tpool.execute(vqa_models.init_model, requested_model, None, True)
+            except Exception as e:
+                return jsonify({"error": "failed to load model '{}': {}".format(requested_model, e)}), 500
+        try:
+            if "alarm_file" in data:
+                path = os.path.join(ALARM_DIR, os.path.basename(data["alarm_file"]))
+            elif "capture_file" in data:
+                path = os.path.join(CAPTURE_DIR, os.path.basename(data["capture_file"]))
+            else:
+                path = IMAGE_PATH
+            if not os.path.exists(path):
+                return jsonify({"error": "File not found"}), 404
+            answer = eventlet.tpool.execute(vqa_models.run_vqa, path, data["question"], requested_model)
+            used_model = requested_model or vqa_models.current_model()
+            if "alarm_file" in data:
+                vqa_storage.add_followup(ALARM_DIR, os.path.basename(data["alarm_file"]),
+                                         data["question"], answer)
+            return jsonify({"answer": answer, "model": used_model})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/models")
+    def list_models():
+        return jsonify({
+            "current":    vqa_models.current_model(),
+            "loaded":     vqa_models.loaded_models(),
+            "available":  list(vqa_models.MODEL_DEFAULTS.keys()),
+            "max_loaded": vqa_models.MAX_LOADED,
+        })
+
+    @app.route("/save_alarm", methods=["POST"])
+    def save_alarm_route():
+        data     = request.get_json() or {}
+        filename = srv_save_alarm(data.get("question", ""), data.get("answer", ""))
+        if not filename:
+            return jsonify({"error": "No image"}), 404
+        return jsonify({"status": "ok", "file": filename})
+
+    @app.route("/alarms")
+    def list_alarms():
+        return jsonify({"alarms": vqa_storage.load_alarms(ALARM_DIR)})
+
+    @app.route("/alarms/<filename>")
+    def get_alarm(filename):
+        path = os.path.join(ALARM_DIR, filename)
+        if not os.path.exists(path):
+            return jsonify({"error": "Not found"}), 404
+        return send_file(path, mimetype="application/json" if filename.endswith(".json") else "image/jpeg")
+
+    @app.route("/alarms/<filename>", methods=["DELETE"])
+    def delete_alarm(filename):
+        path = os.path.join(ALARM_DIR, filename)
+        if not os.path.exists(path):
+            return jsonify({"error": "Not found"}), 404
+        os.remove(path)
+        jpath = path.replace(".jpg", ".json")
+        if os.path.exists(jpath):
+            os.remove(jpath)
+        return jsonify({"status": "ok"})
+
+    @app.route("/captures")
+    def list_captures():
+        if not os.path.exists(CAPTURE_DIR):
+            return jsonify({"files": [], "total": 0, "limit": CAP_LIMIT})
+        files = sorted([f for f in os.listdir(CAPTURE_DIR) if f.endswith(".jpg")], reverse=True)
+        return jsonify({"files": files, "total": len(files), "limit": CAP_LIMIT})
+
+    @app.route("/captures/<filename>")
+    def get_capture(filename):
+        path = os.path.join(CAPTURE_DIR, filename)
+        if not os.path.exists(path):
+            return jsonify({"error": "Not found"}), 404
+        return send_file(path, mimetype="image/jpeg")
+
+    @app.route("/play_sound", methods=["POST"])
+    def play_sound():
+        data = request.get_json() or {}
+        if not srv_play_sound(data.get("file", "default_alarm_sound.wav")):
+            return jsonify({"error": "File not found"}), 404
+        return jsonify({"status": "ok"})
+
+    @app.route("/run_cmd", methods=["POST"])
+    def run_cmd():
+        data = request.get_json() or {}
+        cmd  = data.get("cmd", "").strip()
+        if not cmd:
+            return jsonify({"error": "cmd missing"}), 400
+        eventlet.tpool.execute(subprocess.run, cmd, shell=True)
+        return jsonify({"status": "ok"})
+
+    @app.route("/loop/start", methods=["POST"])
+    def loop_start():
+        nonlocal loop_thread, loop_running
+        data      = request.get_json() or {}
+        questions = data.get("questions", [])
+        if not questions:
+            return jsonify({"error": "questions required"}), 400
+        interval = max(1, int(data.get("interval", 5)))
+        with loop_lock:
+            if loop_running:
+                return jsonify({"error": "Loop already running"}), 409
+            loop_config.update({
+                "interval":  interval,
+                "questions": questions,
+                "save":      bool(data.get("save", True)),
+                "save_all":  bool(data.get("save_all", False)),
+                "sound":     bool(data.get("sound", True)),
+                "soundfile": data.get("soundfile", "default_alarm_sound.wav"),
+            })
+            loop_stats.update({"total": 0, "alarms": 0, "saved": 0,
+                                "last_capture": None, "started_at": datetime.now().isoformat()})
+            loop_running = True
+            loop_thread  = socketio.start_background_task(loop_worker)
+        socketio.emit("loop_state", {"running": True, "config": dict(loop_config), "stats": dict(loop_stats)})
+        return jsonify({"status": "ok", "config": loop_config, "stats": loop_stats})
+
+    @app.route("/loop/stop", methods=["POST"])
+    def loop_stop():
+        nonlocal loop_running
+        with loop_lock:
+            loop_running = False
+        return jsonify({"status": "ok"})
+
+    @app.route("/loop/status")
+    def loop_status():
+        with loop_lock:
+            return jsonify({"running": loop_running, "config": dict(loop_config), "stats": dict(loop_stats)})
+
+    @socketio.on("connect")
+    def on_connect():
+        emit("loop_state", {"running": loop_running, "config": dict(loop_config), "stats": dict(loop_stats)})
+
+    print("Server running on http://" + HOST + ":" + str(PORT))
+    socketio.run(app, host=HOST, port=PORT)
+
+
+# ── Main ─────────────────────────────────────────────────────────────────────
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog="vqa-ai-cam",
+        description="VQA-Cam – visual question answering for surveillance and automation"
+    )
+    parser.add_argument("--alarm-dir",   default=None, help="Override alarm directory")
+    parser.add_argument("--capture-dir", default=None, help="Override capture directory")
+    parser.add_argument("--image-path",  default=None, help="Override current image path")
+
+    sub = parser.add_subparsers(dest="mode", required=True)
+
+    def add_model(p):
+        p.add_argument("--model", default=None,
+                       choices=["vilt", "blip", "blip-l", "git", "vbert"],
+                       help="VQA model")
+        p.add_argument("--model-dir", default=None, help="Local model cache directory")
+
+    def add_camera(p):
+        p.add_argument("--camera", default="termux",
+                       help="Camera preset (termux|rpi|fswebcam) or custom with {output}")
+
+    def add_timg(p):
+        p.add_argument("--timg", action="store_true", help="Display images with timg")
+
+    def add_questions(p):
+        p.add_argument("--question", nargs="+", help="Question to ask")
+        p.add_argument("--match",    default="",   help="Match word")
+        p.add_argument("--cmd",      default="",   help="Shell command on match")
+        p.add_argument("--config",   default=None, help="JSON question chain config")
+
+    # ask
+    p_ask = sub.add_parser("ask", help="Single-shot Q&A (exit 0=match, 1=no match)")
+    p_ask.add_argument("question", help="Question")
+    p_ask.add_argument("match",    help="Match word")
+    p_ask.add_argument("--image",  required=True, help="Image file")
+    p_ask.add_argument("--cmd",    default="",    help="Shell command on match")
+    p_ask.add_argument("--quiet",  action="store_true")
+    add_model(p_ask)
+
+    # single
+    p_single = sub.add_parser("single", help="Analyze one image interactively")
+    add_model(p_single)
+    add_camera(p_single)
+    add_timg(p_single)
+    add_questions(p_single)
+    p_single.add_argument("--image", default=None, help="Image file (default: take photo)")
+    p_single.add_argument("--save",  action="store_true", help="Save alarm images")
+
+    # loop
+    p_loop = sub.add_parser("loop", help="Continuous capture and analysis")
+    add_model(p_loop)
+    add_camera(p_loop)
+    add_timg(p_loop)
+    add_questions(p_loop)
+    p_loop.add_argument("--interval", type=float, default=10, help="Cycle time in seconds")
+    p_loop.add_argument("--save",     action="store_true", help="Save alarm images")
+    p_loop.add_argument("--save-all", action="store_true", help="Save all captures")
+    p_loop.add_argument("--sound",    default=None, help="Sound file on alarm")
+
+    # gallery
+    p_gallery = sub.add_parser("gallery", help="Browse alarm images in terminal")
+    add_timg(p_gallery)
+    p_gallery.add_argument("--interactive", action="store_true", help="Interactive mode")
+
+    # server
+    p_server = sub.add_parser("server", help="Start web server with browser UI")
+    add_model(p_server)
+    p_server.add_argument("--host", default=None, help="Host (default: 127.0.0.1)")
+    p_server.add_argument("--port", type=int, default=None, help="Port (default: 5666)")
+    p_server.add_argument("--html", default=None, help="Path to vqa_cam.html")
+
+    # config
+    p_cfg = sub.add_parser("config", help="Manage config file")
+    p_cfg.add_argument("action", choices=["show", "init", "purge-model"],
+                       help="show | init | purge-model")
+    p_cfg.add_argument("--model", default=None,
+                       choices=["vilt", "blip", "blip-l", "git", "vbert"],
+                       help="Model to purge (default: configured model)")
+
+    args = parser.parse_args()
+
+    overrides = {}
+    if hasattr(args, "alarm_dir")   and args.alarm_dir:   overrides["alarm_dir"]   = args.alarm_dir
+    if hasattr(args, "capture_dir") and args.capture_dir: overrides["capture_dir"] = args.capture_dir
+    if hasattr(args, "image_path")  and args.image_path:  overrides["image_path"]  = args.image_path
+    if hasattr(args, "model")       and args.model:       overrides["model"]        = args.model
+    if hasattr(args, "model_dir")   and args.model_dir:   overrides["model_dir"]   = args.model_dir
+    if hasattr(args, "host")        and args.host:        overrides["host"]         = args.host
+    if hasattr(args, "port")        and args.port:        overrides["port"]         = args.port
+    if hasattr(args, "html")        and args.html:        overrides["html_path"]    = args.html
+
+    cfg = vqa_config.load(overrides)
+
+    if args.mode == "ask":
+        mode_ask(args, cfg)
+    elif args.mode == "single":
+        mode_single(args, cfg)
+    elif args.mode == "loop":
+        mode_loop(args, cfg)
+    elif args.mode == "gallery":
+        mode_gallery(args, cfg)
+    elif args.mode == "server":
+        mode_server(args, cfg)
+    elif args.mode == "config":
+        mode_config(args, cfg)
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+./vqa_cam/__init__.py:
+
+
+
+
+./vqa_cam/camera.py:
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# vqa_camera.py – camera and image utilities
+
+import os
+import subprocess
+
+from vqa_cam.config import CAMERA_COMMANDS
+
+RED   = "\033[91m"
+GRAY  = "\033[90m"
+RESET = "\033[0m"
+
+
+def resolve_camera(camera):
+    cmd = CAMERA_COMMANDS.get(camera, camera)
+    if "{output}" not in cmd:
+        print(RED + "Error: camera command must contain {output}" + RESET)
+        import sys; sys.exit(2)
+    return cmd
+
+
+def take_photo(camera_cmd, path):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    before = os.path.getmtime(path) if os.path.exists(path) else 0
+    result = subprocess.run(
+        camera_cmd.replace("{output}", path),
+        shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    )
+    if result.returncode != 0:
+        return False
+    after = os.path.getmtime(path) if os.path.exists(path) else 0
+    return after > before
+
+
+def show_image(path, timg=False):
+    if timg and os.path.exists(path):
+        subprocess.run(["timg", path])
+
+
+
+./vqa_cam/chain.py:
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# vqa_chain.py – rule chain evaluation
+
+import subprocess
+from vqa_cam.models import run_vqa
+from vqa_cam.storage import save_alarm
+
+RED   = "\033[91m"
+GREEN = "\033[92m"
+GRAY  = "\033[90m"
+RESET = "\033[0m"
+
+
+def evaluate_chain(item, image_path, cfg, depth=0, chain_so_far=None, timg=False, quiet=False):
+    if chain_so_far is None:
+        chain_so_far = []
+
+    question   = item.get("question", "").strip()
+    match_word = item.get("match", "").strip()
+    cmd        = item.get("cmd", "").strip()
+    followup   = item.get("followup")
+    is_leaf    = followup is None
+
+    if not question:
+        return []
+
+    indent = "  " * depth
+    if not quiet:
+        print(indent + GRAY + question + RESET + " ", end="", flush=True)
+
+    try:
+        answer = run_vqa(image_path, question)
+    except Exception as e:
+        answer = "error: " + str(e)
+
+    matched = bool(match_word) and (match_word.lower() in answer.lower())
+
+    if not quiet:
+        print((RED if matched else GREEN) + answer + RESET)
+
+    current_chain = chain_so_far + [{"question": question, "answer": answer, "matched": matched}]
+    results = [{"question": question, "answer": answer, "matched": matched,
+                "depth": depth, "is_leaf": is_leaf}]
+
+    if matched:
+        if is_leaf:
+            if cfg.get("save"):
+                saved = save_alarm(cfg, image_path, current_chain)
+                if not quiet:
+                    print(indent + GRAY + "saved: " + saved + RESET)
+            sound = cfg.get("soundfile", "")
+            if sound and __import__("os").path.exists(str(sound)):
+                subprocess.Popen(["play-audio", sound])
+        if cmd:
+            subprocess.run(cmd, shell=True)
+        if followup:
+            results.extend(evaluate_chain(
+                followup, image_path, cfg, depth + 1, current_chain, timg, quiet
+            ))
+
+    return results
+
+
+def load_questions(args):
+    import json
+    if hasattr(args, "config") and args.config:
+        with open(args.config) as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict) and "questions" in data:
+            return data["questions"]
+        return [data]
+    if hasattr(args, "question") and args.question:
+        return [{"question": " ".join(args.question),
+                 "match": getattr(args, "match", "") or "",
+                 "cmd":   getattr(args, "cmd",   "") or ""}]
+    return []
+
+
+
+./vqa_cam/config.py:
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# vqa_config.py – configuration defaults and loading
+
+import os
+import json
+import shutil
+
+CONFIG_PATH = os.path.expanduser("~/vqa_ai_cam/config/vqa-ai-cam.json")
+
+CAMERA_COMMANDS = {
+    "termux":   "termux-camera-photo -c 2 {output}",
+    "rpi":      "libcamera-still -o {output} --nopreview -t 1",
+    "fswebcam": "fswebcam -r 1280x720 --no-banner {output}",
+}
+
+_MODEL_DIRS = {
+    "vilt":   "~/vqa-models/vilt",
+    "blip":   "~/vqa-models/blip",
+    "blip-l": "~/vqa-models/blip-l",
+    "git":    "~/vqa-models/git",
+    "vbert":  "~/vqa-models/vbert",
+}
+
+_HF_MODEL_IDS = {
+    "vilt":   "dandelin/vilt-b32-finetuned-vqa",
+    "blip":   "Salesforce/blip-vqa-base",
+    "blip-l": "Salesforce/blip-vqa-capfilt-large",
+    "git":    "microsoft/git-base-vqav2",
+    "vbert":  "uclanlp/visualbert-vqa",
+}
+
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_CLIENT_DIR = os.path.join(os.path.dirname(_SCRIPT_DIR), "client")
+
+DEFAULTS = {
+    "model":         "blip",
+    "model_dir":     None,
+    "image_path":    "~/vqa_ai_cam/images/foto.jpg",
+    "alarm_dir":     "~/vqa_ai_cam/alarms",
+    "capture_dir":   "~/vqa_ai_cam/captures",
+    "sound_dir":     "~/vqa_ai_cam/sounds",
+    "html_path":     os.path.join(_CLIENT_DIR, "vqa_cam.html"),
+    "host":          "127.0.0.1",
+    "port":          5666,
+    "capture_limit": 100,
+}
+
+_PATH_KEYS = ("image_path", "alarm_dir", "capture_dir", "sound_dir", "html_path", "model_dir")
+
+
+def load(overrides=None):
+    cfg = dict(DEFAULTS)
+    if os.path.exists(CONFIG_PATH):
+        try:
+            with open(CONFIG_PATH) as f:
+                stored = json.load(f)
+            if isinstance(stored, dict):
+                cfg.update({k: v for k, v in stored.items() if v is not None})
+        except Exception:
+            pass
+    if overrides:
+        cfg.update({k: v for k, v in overrides.items() if v is not None})
+    for key in _PATH_KEYS:
+        if cfg.get(key):
+            cfg[key] = os.path.expanduser(str(cfg[key]))
+    if not cfg.get("model_dir"):
+        model = cfg.get("model", "blip")
+        cfg["model_dir"] = os.path.expanduser(_MODEL_DIRS.get(model, "~/vqa-models/" + model))
+    return cfg
+
+
+def purge_model(model, model_dir):
+    removed = []
+    if os.path.exists(model_dir):
+        shutil.rmtree(model_dir)
+        removed.append(model_dir)
+    hf_cache = os.path.expanduser("~/.cache/huggingface/hub")
+    model_id = _HF_MODEL_IDS.get(model)
+    if model_id:
+        hf_dir = os.path.join(hf_cache, "models--" + model_id.replace("/", "--"))
+        if os.path.exists(hf_dir):
+            shutil.rmtree(hf_dir)
+            removed.append(hf_dir)
+    tmp_count = 0
+    if os.path.exists(hf_cache):
+        for dirpath, _, filenames in os.walk(hf_cache):
+            for fname in filenames:
+                if fname.endswith(".incomplete") or fname.startswith("tmp_"):
+                    try:
+                        os.remove(os.path.join(dirpath, fname))
+                        tmp_count += 1
+                    except OSError:
+                        pass
+    return removed, tmp_count
+
+
+def init():
+    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+    if os.path.exists(CONFIG_PATH):
+        print("Config already exists: " + CONFIG_PATH)
+        print(json.dumps(load(), indent=2))
+        return
+    saveable = {k: v for k, v in DEFAULTS.items() if k not in ("html_path", "model_dir")}
+    with open(CONFIG_PATH, "w") as f:
+        json.dump(saveable, f, indent=2)
+    print("Created: " + CONFIG_PATH)
+    print(json.dumps(load(), indent=2))
+
+
+
+./vqa_cam/models.py:
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# vqa_cam/models.py – model loading, LRU cache, and inference
+#
+# Supported models:
+#   vilt   – dandelin/vilt-b32-finetuned-vqa   (~200MB, fast, fixed vocab)
+#   blip   – Salesforce/blip-vqa-base          (~400MB, generative)
+#   blip-l – Salesforce/blip-vqa-capfilt-large (~900MB, better accuracy)
+#   git    – microsoft/git-base-vqav2          (~700MB, generative)
+#   vbert  – uclanlp/visualbert-vqa            (~400MB, fixed vocab, needs detector)
+#
+# Cache: up to MAX_LOADED models held in memory at once (LRU eviction).
+# Configure via env VQA_MAX_LOADED_MODELS (default 2).
+
+import os
+import contextlib
+import io
+import threading
+from collections import OrderedDict
+
+os.environ["HF_HUB_DISABLE_XET"] = "1"
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+
+MODEL_DEFAULTS = {
+    "vilt":   {"model_id": "dandelin/vilt-b32-finetuned-vqa",       "dir": "~/vqa-models/vilt"},
+    "blip":   {"model_id": "Salesforce/blip-vqa-base",              "dir": "~/vqa-models/blip"},
+    "blip-l": {"model_id": "Salesforce/blip-vqa-capfilt-large",     "dir": "~/vqa-models/blip-l"},
+    "git":    {"model_id": "microsoft/git-base-vqav2",              "dir": "~/vqa-models/git"},
+    "vbert":  {"model_id": "uclanlp/visualbert-vqa",                "dir": "~/vqa-models/vbert"},
+}
+
+MAX_LOADED = max(1, int(os.environ.get("VQA_MAX_LOADED_MODELS", "2")))
+
+_cache = OrderedDict()
+_lock  = threading.RLock()
+
+
+def init_model(model_name, model_dir=None, quiet=False):
+    model_name = model_name.lower()
+    if model_name not in MODEL_DEFAULTS:
+        raise ValueError("Unknown model: " + model_name + ". Choose: " + ", ".join(MODEL_DEFAULTS))
+    with _lock:
+        if model_name in _cache:
+            _cache.move_to_end(model_name)
+            return model_name
+        while len(_cache) >= MAX_LOADED:
+            evicted = next(iter(_cache))
+            del _cache[evicted]
+            if not quiet:
+                print("\033[90mEvicted from cache: " + evicted + "\033[0m")
+        if not quiet:
+            print("\033[90mLoading model: " + model_name + "\033[0m")
+        defaults  = MODEL_DEFAULTS[model_name]
+        model_id  = defaults["model_id"]
+        model_dir = model_dir or os.path.expanduser(defaults["dir"])
+        if model_name == "vilt":
+            p, m = _load_vilt(model_id, model_dir)
+        elif model_name in ("blip", "blip-l"):
+            p, m = _load_blip(model_id, model_dir)
+        elif model_name == w"git":
+            p, m = _load_git(model_id, model_dir)
+        elif model_name == "vbert":
+            p, m = _load_vbert(model_id, model_dir)
+        _cache[model_name] = (p, m)
+        return model_name
+
+
+def run_vqa(image_path, question, model_name=None):
+    from PIL import Image
+    with _lock:
+        if model_name:
+            model_name = model_name.lower()
+            if model_name not in _cache:
+                raise ValueError("Model '" + model_name + "' not loaded")
+            _cache.move_to_end(model_name)
+        else:
+            if not _cache:
+                raise ValueError("No model loaded")
+            model_name = next(reversed(_cache))
+        processor, model = _cache[model_name]
+    img = Image.open(image_path).convert("RGB")
+    if model_name == "vilt":
+        return _run_vilt(processor, model, img, question)
+    elif model_name in ("blip", "blip-l"):
+        return _run_blip(processor, model, img, question)
+    elif model_name == "git":
+        return _run_git(processor, model, img, question)
+    elif model_name == "vbert":
+        return _run_vbert(processor, model, img, question)
+
+
+def current_model():
+    with _lock:
+        if not _cache:
+            return None
+        return next(reversed(_cache))
+
+
+def loaded_models():
+    with _lock:
+        return list(_cache.keys())
+
+
+def _tpool(fn):
+    try:
+        import eventlet.tpool
+        return eventlet.tpool.execute(fn)
+    except ImportError:
+        return fn()
+
+
+def _load_vilt(model_id, model_dir):
+    from transformers import ViltProcessor, ViltForQuestionAnswering, logging as tlog
+    tlog.set_verbosity_error()
+    if not os.path.exists(model_dir):
+        print("Downloading ViLT...")
+        p = ViltProcessor.from_pretrained(model_id)
+        m = ViltForQuestionAnswering.from_pretrained(model_id)
+        p.save_pretrained(model_dir)
+        m.save_pretrained(model_dir, safe_serialization=True)
+    else:
+        with contextlib.redirect_stderr(io.StringIO()):
+            p = ViltProcessor.from_pretrained(model_dir, local_files_only=True)
+            m = ViltForQuestionAnswering.from_pretrained(model_dir, local_files_only=True)
+    m.eval()
+    return p, m
+
+
+def _run_vilt(processor, model, img, question):
+    import torch
+    inputs = processor(img, question, return_tensors="pt")
+    def _infer():
+        with torch.no_grad():
+            outputs = model(**inputs)
+        pid = outputs.logits.argmax(-1).item()
+        return model.config.id2label[pid]
+    return _tpool(_infer)
+
+
+def _load_blip(model_id, model_dir):
+    from transformers import BlipProcessor, BlipForQuestionAnswering, logging as tlog
+    tlog.set_verbosity_error()
+    if not os.path.exists(model_dir):
+        print("Downloading BLIP...")
+        p = BlipProcessor.from_pretrained(model_id)
+        m = BlipForQuestionAnswering.from_pretrained(model_id)
+        p.save_pretrained(model_dir)
+        m.save_pretrained(model_dir, safe_serialization=True)
+    else:
+        with contextlib.redirect_stderr(io.StringIO()):
+            p = BlipProcessor.from_pretrained(model_dir, local_files_only=True)
+            m = BlipForQuestionAnswering.from_pretrained(model_dir, local_files_only=True)
+    m.eval()
+    return p, m
+
+
+def _run_blip(processor, model, img, question):
+    import torch
+    inputs = processor(img, question, return_tensors="pt")
+    def _infer():
+        with torch.no_grad():
+            out = model.generate(**inputs, max_new_tokens=20)
+        return processor.decode(out[0], skip_special_tokens=True)
+    return _tpool(_infer)
+
+
+def _load_git(model_id, model_dir):
+    from transformers import AutoProcessor, AutoModelForCausalLM, logging as tlog
+    tlog.set_verbosity_error()
+    if not os.path.exists(model_dir):
+        print("Downloading GIT...")
+        p = AutoProcessor.from_pretrained(model_id)
+        m = AutoModelForCausalLM.from_pretrained(model_id)
+        p.save_pretrained(model_dir)
+        m.save_pretrained(model_dir, safe_serialization=True)
+    else:
+        with contextlib.redirect_stderr(io.StringIO()):
+            p = AutoProcessor.from_pretrained(model_dir, local_files_only=True)
+            m = AutoModelForCausalLM.from_pretrained(model_dir, local_files_only=True)
+    m.eval()
+    return p, m
+
+
+def _run_git(processor, model, img, question):
+    import torch
+    pv  = processor(images=img, return_tensors="pt").pixel_values
+    ids = processor(text=question, return_tensors="pt").input_ids
+    def _infer():
+        with torch.no_grad():
+            gen = model.generate(pixel_values=pv, input_ids=ids, max_new_tokens=20)
+        return processor.batch_decode(gen, skip_special_tokens=True)[0].strip()
+    return _tpool()
+
+
+def _load_vbert(model_id, model_dir):
+    print("\033[93mWarning: VisualBERT requires object-detector visual features. "
+          "Dummy embeddings are used here, so answers will be unreliable.\033[0m")
+    from transformers import BertTokenizer, VisualBertForQuestionAnswering, logging as tlog
+    tlog.set_verbosity_error()
+    if not os.path.exists(model_dir):
+        print("Downloading VisualBERT...")
+        p = BertTokenizer.from_pretrained("bert-base-uncased")
+        m = VisualBertForQuestionAnswering.from_pretrained(model_id)
+        p.save_pretrained(model_dir)
+        m.save_pretrained(model_dir, safe_serialization=True)
+    else:
+        with contextlib.redirect_stderr(io.StringIO()):
+            p = BertTokenizer.from_pretrained(model_dir, local_files_only=True)
+            m = VisualBertForQuestionAnswering.from_pretrained(model_dir, local_files_only=True)
+    m.eval()
+    return p, m
+
+
+def _run_vbert(tokenizer, model, img, question):
+    import torch
+    inputs = tokenizer(question, return_tensors="pt", padding=True)
+    hidden_size = model.config.visual_embedding_dim if hasattr(model.config, "visual_embedding_dim") else 2048
+    inputs.update({
+        "visual_embeds":         torch.zeros((1, 1, hidden_size)),
+        "visual_token_type_ids": torch.zeros((1, 1), dtype=torch.long),
+        "visual_attention_mask": torch.ones((1, 1),  dtype=torch.long),
+    })
+    def _infer():
+        with torch.no_grad():
+            out = model(**inputs)
+        pid = out.logits.argmax(-1).item()
+        return model.config.id2label[pid]
+    return _tpool(_infer)
+
+
+
+./vqa_cam/storage.py:
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# vqa_storage.py – alarm and capture storage
+
+import os
+import shutil
+import json
+from datetime import datetime
+
+GRAY  = "\033[90m"
+RESET = "\033[0m"
+
+
+def save_alarm(cfg, image_path, chain):
+    os.makedirs(cfg["alarm_dir"], exist_ok=True)
+    ts   = datetime.now().strftime("%Y%m%d_%H%M%S")
+    dest = os.path.join(cfg["alarm_dir"], ts + ".jpg")
+    shutil.copy2(image_path, dest)
+    meta = {
+        "timestamp": datetime.now().isoformat(),
+        "question":  chain[0]["question"] if chain else "",
+        "answer":    chain[0]["answer"]   if chain else "",
+        "chain":     chain,
+    }
+    with open(os.path.join(cfg["alarm_dir"], ts + ".json"), "w") as f:
+        json.dump(meta, f, indent=2)
+    return dest
+
+
+def save_capture(cfg, image_path):
+    os.makedirs(cfg["capture_dir"], exist_ok=True)
+    files = sorted([f for f in os.listdir(cfg["capture_dir"]) if f.endswith(".jpg")])
+    while len(files) >= cfg["capture_limit"]:
+        os.remove(os.path.join(cfg["capture_dir"], files.pop(0)))
+    ts   = datetime.now().strftime("%Y%m%d_%H%M%S")
+    dest = os.path.join(cfg["capture_dir"], ts + ".jpg")
+    shutil.copy2(image_path, dest)
+    return dest
+
+
+def load_alarms(alarm_dir):
+    if not os.path.exists(alarm_dir):
+        return []
+    result = []
+    for jpg in sorted([f for f in os.listdir(alarm_dir) if f.endswith(".jpg")]):
+        entry = {"file": jpg}
+        jpath = os.path.join(alarm_dir, jpg.replace(".jpg", ".json"))
+        if os.path.exists(jpath):
+            try:
+                with open(jpath) as f:
+                    meta = json.load(f)
+                entry.update({
+                    "question":  meta.get("question", ""),
+                    "answer":    meta.get("answer", ""),
+                    "timestamp": meta.get("timestamp", ""),
+                    "followups": meta.get("followups", []),
+                    "chain":     meta.get("chain", []),
+                })
+            except:
+                pass
+        result.append(entry)
+    return result
+
+
+def add_followup(alarm_dir, filename, question, answer):
+    jpath = os.path.join(alarm_dir, filename.replace(".jpg", ".json"))
+    if not os.path.exists(jpath):
+        return False
+    try:
+        with open(jpath) as f:
+            meta = json.load(f)
+        meta.setdefault("followups", []).append({
+            "question":  question,
+            "answer":    answer,
+            "timestamp": datetime.now().isoformat(),
+        })
+        with open(jpath, "w") as f:
+            json.dump(meta, f)
+        return True
+    except:
+        return False
+
+
+

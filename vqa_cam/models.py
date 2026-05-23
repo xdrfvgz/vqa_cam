@@ -189,7 +189,7 @@ def _run_git(processor, model, img, question):
         with torch.no_grad():
             gen = model.generate(pixel_values=pv, input_ids=ids, max_new_tokens=20)
         return processor.batch_decode(gen, skip_special_tokens=True)[0].strip()
-    return _tpool(_infer)
+    return _tpool()
 
 
 def _load_vbert(model_id, model_dir):
