@@ -1351,12 +1351,23 @@
   }
 
   // MODELS TAB
-  const MQ_MODELS = ["vilt", "blip", "blip-l", "git", "vbert", "moondream"];
+  let MQ_MODELS  = ["blip"];
   let mqImage    = { type: null, file: null };
   let mqMode     = "chain";
   let mqSelected = new Set(["blip"]);
 
   async function initModelsTab() {
+    try {
+      const mr = await fetch(server() + "/models");
+      const md = await mr.json();
+      if (Array.isArray(md.available) && md.available.length) {
+        MQ_MODELS = md.available;
+        if (!MQ_MODELS.some(m => mqSelected.has(m))) {
+          mqSelected = new Set([MQ_MODELS[0]]);
+        }
+      }
+    } catch {}
+
     const alarmOpts   = document.getElementById("mq-alarm-opts");
     const captureOpts = document.getElementById("mq-capture-opts");
     alarmOpts.innerHTML = "";
