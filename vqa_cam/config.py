@@ -65,10 +65,10 @@ def init():
     os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
     if os.path.exists(CONFIG_PATH):
         print("Config already exists: " + CONFIG_PATH)
-        with open(CONFIG_PATH) as f:
-            print(f.read())
+        print(json.dumps(load(), indent=2))
         return
     saveable = {k: v for k, v in DEFAULTS.items() if k not in ("html_path", "model_dir")}
     with open(CONFIG_PATH, "w") as f:
         json.dump(saveable, f, indent=2)
     print("Created: " + CONFIG_PATH)
+    print(json.dumps(load(), indent=2))
