@@ -269,6 +269,8 @@ def mode_server(args, cfg):
     HOST            = cfg["host"]
     PORT            = cfg["port"]
     CAP_LIMIT       = cfg["capture_limit"]
+    CAMERA_CMD      = vqa_camera.resolve_camera(args.camera or "termux")
+    STARTED_AT      = datetime.now().isoformat()
 
     os.makedirs(os.path.dirname(IMAGE_PATH), exist_ok=True)
 
@@ -287,13 +289,7 @@ def mode_server(args, cfg):
                           "last_capture": None, "started_at": None}
 
     def srv_take_photo(path):
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        before = os.path.getmtime(path) if os.path.exists(path) else 0
-        result = subprocess.run(f"termux-camera-photo -c 2 {path}", shell=True)
-        if result.returncode != 0:
-            return False
-        after = os.path.getmtime(path) if os.path.exists(path) else 0
-        return after > before
+        return vqa_camera.take_photo(CAMERA_CMD, path)
 
     def srv_save_alarm(question, answer, chain=None):
         if not os.path.exists(IMAGE_PATH):
@@ -418,7 +414,17 @@ def mode_server(args, cfg):
 
     @app.route("/health")
     def health():
-        return jsonify({"status": "ok", "loop_running": loop_running, "model": cfg["model"]})
+        def _count(d):
+            return len([f for f in os.listdir(d) if f.endswith(".jpg")]) if os.path.exists(d) else 0
+        return jsonify({
+            "status":       "ok",
+            "loop_running": loop_running,
+            "model":        vqa_models.current_model(),
+            "loaded":       vqa_models.loaded_models(),
+            "camera":       CAMERA_CMD,
+            "started_at":   STARTED_AT,
+            "counts":       {"alarms": _count(ALARM_DIR), "captures": _count(CAPTURE_DIR)},
+        })
 
     @app.route("/photo", methods=["POST"])
     def photo():
@@ -645,6 +651,7 @@ def main():
     # server
     p_server = sub.add_parser("server", help="Start web server with browser UI")
     add_model(p_server)
+    add_camera(p_server)
     p_server.add_argument("--host", default=None, help="Host (default: 127.0.0.1)")
     p_server.add_argument("--port", type=int, default=None, help="Port (default: 5666)")
     p_server.add_argument("--html", default=None, help="Path to vqa_cam.html")
