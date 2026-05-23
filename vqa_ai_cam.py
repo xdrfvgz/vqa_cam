@@ -476,6 +476,33 @@ def mode_server(args, cfg):
             "max_loaded": vqa_models.MAX_LOADED,
         })
 
+    @app.route("/config")
+    def get_config():
+        public_keys = ("model", "image_path", "alarm_dir", "capture_dir",
+                       "sound_dir", "host", "port", "capture_limit", "questions")
+        return jsonify({k: cfg.get(k) for k in public_keys if k in cfg})
+
+    @app.route("/loop/config", methods=["POST"])
+    def loop_config_update():
+        data = request.get_json() or {}
+        with loop_lock:
+            if "interval"  in data: loop_config["interval"]  = max(1, int(data["interval"]))
+            if "questions" in data and isinstance(data["questions"], list):
+                loop_config["questions"] = data["questions"]
+            for k in ("save", "save_all", "sound"):
+                if k in data: loop_config[k] = bool(data[k])
+            if "soundfile" in data: loop_config["soundfile"] = data["soundfile"]
+            snapshot = dict(loop_config)
+        socketio.emit("loop_state", {"running": loop_running, "config": snapshot, "stats": dict(loop_stats)})
+        return jsonify({"status": "ok", "config": snapshot})
+
+    @app.route("/loop/save", methods=["POST"])
+    def loop_save_to_file():
+        with loop_lock:
+            snapshot = dict(loop_config)
+        path = vqa_config.save({"questions": snapshot.get("questions", [])})
+        return jsonify({"status": "ok", "path": path, "questions": snapshot.get("questions", [])})
+
     @app.route("/save_alarm", methods=["POST"])
     def save_alarm_route():
         data     = request.get_json() or {}

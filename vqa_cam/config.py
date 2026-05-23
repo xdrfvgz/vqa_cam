@@ -72,6 +72,23 @@ def load(overrides=None):
     return cfg
 
 
+def save(updates):
+    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+    stored = {}
+    if os.path.exists(CONFIG_PATH):
+        try:
+            with open(CONFIG_PATH) as f:
+                loaded = json.load(f)
+            if isinstance(loaded, dict):
+                stored = loaded
+        except Exception:
+            pass
+    stored.update({k: v for k, v in updates.items() if v is not None})
+    with open(CONFIG_PATH, "w") as f:
+        json.dump(stored, f, indent=2)
+    return CONFIG_PATH
+
+
 def purge_model(model, model_dir):
     removed = []
     if os.path.exists(model_dir):
