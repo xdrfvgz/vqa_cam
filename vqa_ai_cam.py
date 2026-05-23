@@ -592,7 +592,7 @@ def main():
 
     def add_model(p):
         p.add_argument("--model", default=None,
-                       choices=["vilt", "blip", "blip-l", "git", "vbert"],
+                       choices=["vilt", "blip", "blip-l", "git", "vbert", "moondream"],
                        help="VQA model")
         p.add_argument("--model-dir", default=None, help="Local model cache directory")
 
@@ -655,7 +655,7 @@ def main():
     p_cfg.add_argument("action", choices=["show", "init", "purge-model"],
                        help="show | init | purge-model")
     p_cfg.add_argument("--model", default=None,
-                       choices=["vilt", "blip", "blip-l", "git", "vbert"],
+                       choices=["vilt", "blip", "blip-l", "git", "vbert", "moondream"],
                        help="Model to purge (default: configured model)")
 
     args = parser.parse_args()

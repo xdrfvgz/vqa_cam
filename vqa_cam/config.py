@@ -15,19 +15,21 @@ CAMERA_COMMANDS = {
 }
 
 _MODEL_DIRS = {
-    "vilt":   "~/vqa-models/vilt",
-    "blip":   "~/vqa-models/blip",
-    "blip-l": "~/vqa-models/blip-l",
-    "git":    "~/vqa-models/git",
-    "vbert":  "~/vqa-models/vbert",
+    "vilt":      "~/vqa-models/vilt",
+    "blip":      "~/vqa-models/blip",
+    "blip-l":    "~/vqa-models/blip-l",
+    "git":       "~/vqa-models/git",
+    "vbert":     "~/vqa-models/vbert",
+    "moondream": "~/vqa-models/moondream",
 }
 
 _HF_MODEL_IDS = {
-    "vilt":   "dandelin/vilt-b32-finetuned-vqa",
-    "blip":   "Salesforce/blip-vqa-base",
-    "blip-l": "Salesforce/blip-vqa-capfilt-large",
-    "git":    "microsoft/git-base-vqav2",
-    "vbert":  "uclanlp/visualbert-vqa",
+    "vilt":      "dandelin/vilt-b32-finetuned-vqa",
+    "blip":      "Salesforce/blip-vqa-base",
+    "blip-l":    "Salesforce/blip-vqa-capfilt-large",
+    "git":       "microsoft/git-base-vqav2",
+    "vbert":     "uclanlp/visualbert-vqa",
+    "moondream": "vikhyatk/moondream2",
 }
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))

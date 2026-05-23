@@ -3,11 +3,12 @@
 # vqa_cam/models.py – model loading, LRU cache, and inference
 #
 # Supported models:
-#   vilt   – dandelin/vilt-b32-finetuned-vqa   (~200MB, fast, fixed vocab)
-#   blip   – Salesforce/blip-vqa-base          (~400MB, generative)
-#   blip-l – Salesforce/blip-vqa-capfilt-large (~900MB, better accuracy)
-#   git    – microsoft/git-base-vqav2          (~700MB, generative)
-#   vbert  – uclanlp/visualbert-vqa            (~400MB, fixed vocab, needs detector)
+#   vilt      – dandelin/vilt-b32-finetuned-vqa   (~200MB, fast, fixed vocab)
+#   blip      – Salesforce/blip-vqa-base          (~400MB, generative)
+#   blip-l    – Salesforce/blip-vqa-capfilt-large (~900MB, better accuracy)
+#   git       – microsoft/git-base-vqav2          (~700MB, generative)
+#   vbert     – uclanlp/visualbert-vqa            (~400MB, fixed vocab, needs detector)
+#   moondream – vikhyatk/moondream2               (~1.8GB, full sentences)
 #
 # Cache: up to MAX_LOADED models held in memory at once (LRU eviction).
 # Configure via env VQA_MAX_LOADED_MODELS (default 2).
@@ -22,11 +23,12 @@ os.environ["HF_HUB_DISABLE_XET"] = "1"
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 
 MODEL_DEFAULTS = {
-    "vilt":   {"model_id": "dandelin/vilt-b32-finetuned-vqa",       "dir": "~/vqa-models/vilt"},
-    "blip":   {"model_id": "Salesforce/blip-vqa-base",              "dir": "~/vqa-models/blip"},
-    "blip-l": {"model_id": "Salesforce/blip-vqa-capfilt-large",     "dir": "~/vqa-models/blip-l"},
-    "git":    {"model_id": "microsoft/git-base-vqav2",              "dir": "~/vqa-models/git"},
-    "vbert":  {"model_id": "uclanlp/visualbert-vqa",                "dir": "~/vqa-models/vbert"},
+    "vilt":      {"model_id": "dandelin/vilt-b32-finetuned-vqa",       "dir": "~/vqa-models/vilt"},
+    "blip":      {"model_id": "Salesforce/blip-vqa-base",              "dir": "~/vqa-models/blip"},
+    "blip-l":    {"model_id": "Salesforce/blip-vqa-capfilt-large",     "dir": "~/vqa-models/blip-l"},
+    "git":       {"model_id": "microsoft/git-base-vqav2",              "dir": "~/vqa-models/git"},
+    "vbert":     {"model_id": "uclanlp/visualbert-vqa",                "dir": "~/vqa-models/vbert"},
+    "moondream": {"model_id": "vikhyatk/moondream2",                   "dir": "~/vqa-models/moondream"},
 }
 
 MAX_LOADED = max(1, int(os.environ.get("VQA_MAX_LOADED_MODELS", "2")))
@@ -61,6 +63,8 @@ def init_model(model_name, model_dir=None, quiet=False):
             p, m = _load_git(model_id, model_dir)
         elif model_name == "vbert":
             p, m = _load_vbert(model_id, model_dir)
+        elif model_name == "moondream":
+            p, m = _load_moondream(model_id, model_dir)
         _cache[model_name] = (p, m)
         return model_name
 
@@ -87,6 +91,8 @@ def run_vqa(image_path, question, model_name=None):
         return _run_git(processor, model, img, question)
     elif model_name == "vbert":
         return _run_vbert(processor, model, img, question)
+    elif model_name == "moondream":
+        return _run_moondream(processor, model, img, question)
 
 
 def current_model():
@@ -225,4 +231,26 @@ def _run_vbert(tokenizer, model, img, question):
             out = model(**inputs)
         pid = out.logits.argmax(-1).item()
         return model.config.id2label[pid]
+    return _tpool(_infer)
+
+
+def _load_moondream(model_id, model_dir):
+    from transformers import AutoModelForCausalLM, AutoTokenizer, logging as tlog
+    tlog.set_verbosity_error()
+    kwargs = {"trust_remote_code": True, "cache_dir": model_dir}
+    if os.path.exists(model_dir) and os.listdir(model_dir):
+        kwargs["local_files_only"] = True
+    else:
+        print("Downloading Moondream2 (~1.8 GB)...")
+    with contextlib.redirect_stderr(io.StringIO()):
+        p = AutoTokenizer.from_pretrained(model_id, **kwargs)
+        m = AutoModelForCausalLM.from_pretrained(model_id, **kwargs)
+    m.eval()
+    return p, m
+
+
+def _run_moondream(tokenizer, model, img, question):
+    def _infer():
+        enc = model.encode_image(img)
+        return model.answer_question(enc, question, tokenizer)
     return _tpool(_infer)
