@@ -108,11 +108,11 @@ def loaded_models():
 
 
 def _tpool(fn):
-    try:
+    import sys
+    if "eventlet.tpool" in sys.modules:
         import eventlet.tpool
         return eventlet.tpool.execute(fn)
-    except ImportError:
-        return fn()
+    return fn()
 
 
 def _load_vilt(model_id, model_dir):
