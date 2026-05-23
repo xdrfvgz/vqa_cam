@@ -256,8 +256,6 @@ def mode_config(args, cfg):
 # ── Server mode ───────────────────────────────────────────────────────────────
 
 def mode_server(args, cfg):
-    import eventlet
-    import eventlet.tpool
     from flask import Flask, request, jsonify, send_file
     from flask_cors import CORS
     from flask_socketio import SocketIO, emit
@@ -276,7 +274,7 @@ def mode_server(args, cfg):
 
     app      = Flask(__name__)
     CORS(app)
-    socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
+    socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
     vqa_models.init_model(cfg["model"], cfg["model_dir"])
 
@@ -300,26 +298,26 @@ def mode_server(args, cfg):
     def srv_save_alarm(question, answer, chain=None):
         if not os.path.exists(IMAGE_PATH):
             return None
-        alarm_cfg = {"alarm_dir": ALARM_DIR}
+        alarm_cfg  = {"alarm_dir": ALARM_DIR}
         full_chain = chain or [{"question": question, "answer": answer, "matched": True}]
-        dest = eventlet.tpool.execute(vqa_storage.save_alarm, alarm_cfg, IMAGE_PATH, full_chain)
+        dest = vqa_storage.save_alarm(alarm_cfg, IMAGE_PATH, full_chain)
         return os.path.basename(dest) if dest else None
 
     def srv_save_capture():
         if not os.path.exists(IMAGE_PATH):
             return None
         cap_cfg = {"capture_dir": CAPTURE_DIR, "capture_limit": CAP_LIMIT}
-        dest = eventlet.tpool.execute(vqa_storage.save_capture, cap_cfg, IMAGE_PATH)
+        dest = vqa_storage.save_capture(cap_cfg, IMAGE_PATH)
         return os.path.basename(dest) if dest else None
 
     def srv_play_sound(soundfile):
         path = os.path.join(SOUND_DIR, soundfile)
         if not os.path.exists(path):
             return False
-        eventlet.tpool.execute(subprocess.run, ["play-audio", path])
+        threading.Thread(target=subprocess.run, args=(["play-audio", path],), daemon=True).start()
         return True
 
-    def srv_evaluate_chain(item, srv_cfg, depth=0, chain_so_far=None):
+    def srv_evaluate_chain(item, srv_cfg, image_path, depth=0, chain_so_far=None):
         if chain_so_far is None:
             chain_so_far = []
         question   = item.get("question", "").strip()
@@ -330,7 +328,7 @@ def mode_server(args, cfg):
         if not question:
             return []
         try:
-            answer = eventlet.tpool.execute(vqa_models.run_vqa, IMAGE_PATH, question)
+            answer = vqa_models.run_vqa(image_path, question)
         except Exception as e:
             answer = "Fehler: " + str(e)
         matched = bool(match_word) and (match_word in answer)
@@ -351,11 +349,11 @@ def mode_server(args, cfg):
                     srv_play_sound(srv_cfg["soundfile"])
             if cmd:
                 try:
-                    eventlet.tpool.execute(subprocess.run, cmd, shell=True)
+                    subprocess.run(cmd, shell=True)
                 except Exception as e:
                     entry["cmd_error"] = str(e)
             if followup:
-                results.extend(srv_evaluate_chain(followup, srv_cfg, depth + 1, current_chain))
+                results.extend(srv_evaluate_chain(followup, srv_cfg, image_path, depth + 1, current_chain))
         return results
 
     def loop_worker():
@@ -368,16 +366,16 @@ def mode_server(args, cfg):
                 srv_cfg["questions"] = list(loop_config["questions"])
             socketio.emit("loop_tick", {"phase": "capture_start"})
             cycle_start = time.time()
-            ok = eventlet.tpool.execute(srv_take_photo, IMAGE_PATH)
+            ok = srv_take_photo(IMAGE_PATH)
             if not ok:
                 socketio.emit("loop_tick", {"phase": "error", "message": "Kamera nicht erreichbar"})
-                eventlet.sleep(srv_cfg["interval"])
+                time.sleep(srv_cfg["interval"])
                 continue
-            eventlet.sleep(0.5)
+            time.sleep(0.5)
             loop_stats["total"] += 1
             loop_stats["last_capture"] = datetime.now().isoformat()
             if srv_cfg["save_all"]:
-                eventlet.tpool.execute(srv_save_capture)
+                srv_save_capture()
             socketio.emit("loop_tick", {
                 "phase": "capture_done",
                 "image_url": "/image?t=" + str(int(time.time() * 1000)),
@@ -385,18 +383,19 @@ def mode_server(args, cfg):
             })
             next_result = [False]
             def _take_next():
-                next_result[0] = eventlet.tpool.execute(srv_take_photo, IMAGE_PATH_NEXT)
-            next_greenlet = eventlet.spawn(_take_next)
+                next_result[0] = srv_take_photo(IMAGE_PATH_NEXT)
+            next_thread = threading.Thread(target=_take_next, daemon=True)
+            next_thread.start()
             results   = []
             any_match = False
             for item in srv_cfg["questions"]:
-                chain_results = srv_evaluate_chain(item, srv_cfg)
+                chain_results = srv_evaluate_chain(item, srv_cfg, IMAGE_PATH)
                 results.extend(chain_results)
                 if any(r.get("matched") and r.get("is_leaf") for r in chain_results):
                     any_match = True
-            next_greenlet.wait()
+            next_thread.join()
             if next_result[0] and os.path.exists(IMAGE_PATH_NEXT):
-                eventlet.sleep(0.3)
+                time.sleep(0.3)
                 shutil.move(IMAGE_PATH_NEXT, IMAGE_PATH)
             socketio.emit("loop_tick", {"phase": "cycle_done", "any_match": any_match,
                                         "results": results, "stats": dict(loop_stats)})
@@ -404,7 +403,7 @@ def mode_server(args, cfg):
             rest    = srv_cfg["interval"] - elapsed
             slept   = 0.0
             while slept < rest:
-                eventlet.sleep(0.2)
+                time.sleep(0.2)
                 slept += 0.2
                 with loop_lock:
                     if not loop_running:
@@ -423,7 +422,7 @@ def mode_server(args, cfg):
 
     @app.route("/photo", methods=["POST"])
     def photo():
-        if not eventlet.tpool.execute(srv_take_photo, IMAGE_PATH):
+        if not srv_take_photo(IMAGE_PATH):
             return jsonify({"error": "Camera not available"}), 500
         return jsonify({"status": "ok"})
 
@@ -441,7 +440,7 @@ def mode_server(args, cfg):
         requested_model = (data.get("model") or "").lower() or None
         if requested_model and requested_model not in vqa_models.loaded_models():
             try:
-                eventlet.tpool.execute(vqa_models.init_model, requested_model, None, True)
+                vqa_models.init_model(requested_model, None, True)
             except Exception as e:
                 return jsonify({"error": "failed to load model '{}': {}".format(requested_model, e)}), 500
         try:
@@ -453,7 +452,7 @@ def mode_server(args, cfg):
                 path = IMAGE_PATH
             if not os.path.exists(path):
                 return jsonify({"error": "File not found"}), 404
-            answer = eventlet.tpool.execute(vqa_models.run_vqa, path, data["question"], requested_model)
+            answer = vqa_models.run_vqa(path, data["question"], requested_model)
             used_model = requested_model or vqa_models.current_model()
             if "alarm_file" in data:
                 vqa_storage.add_followup(ALARM_DIR, os.path.basename(data["alarm_file"]),
@@ -528,7 +527,7 @@ def mode_server(args, cfg):
         cmd  = data.get("cmd", "").strip()
         if not cmd:
             return jsonify({"error": "cmd missing"}), 400
-        eventlet.tpool.execute(subprocess.run, cmd, shell=True)
+        threading.Thread(target=subprocess.run, args=(cmd,), kwargs={"shell": True}, daemon=True).start()
         return jsonify({"status": "ok"})
 
     @app.route("/loop/start", methods=["POST"])
