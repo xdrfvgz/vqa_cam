@@ -5,7 +5,7 @@
 import os
 import json
 
-CONFIG_PATH = os.path.expanduser("~/vqa-scripts/config/vqa-ai-cam.json")
+CONFIG_PATH = os.path.expanduser("~/vqa_ai_cam/config/vqa-ai-cam.json")
 
 CAMERA_COMMANDS = {
     "termux":   "termux-camera-photo -c 2 {output}",
@@ -27,10 +27,10 @@ _CLIENT_DIR = os.path.join(os.path.dirname(_SCRIPT_DIR), "client")
 DEFAULTS = {
     "model":         "blip",
     "model_dir":     None,
-    "image_path":    "~/vqa-scripts/images/foto.jpg",
-    "alarm_dir":     "~/vqa-scripts/alarms",
-    "capture_dir":   "~/vqa-scripts/captures",
-    "sound_dir":     "~/vqa-scripts/sounds",
+    "image_path":    "~/vqa_ai_cam/images/foto.jpg",
+    "alarm_dir":     "~/vqa_ai_cam/alarms",
+    "capture_dir":   "~/vqa_ai_cam/captures",
+    "sound_dir":     "~/vqa_ai_cam/sounds",
     "html_path":     os.path.join(_CLIENT_DIR, "vqa_cam.html"),
     "host":          "127.0.0.1",
     "port":          5666,

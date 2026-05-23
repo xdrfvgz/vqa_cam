@@ -12,7 +12,7 @@
 #   server   – start Flask/Socket.IO web server with browser UI
 #   config   – show or init config file
 #
-# Config file: ~/vqa-scripts/config/vqa-ai-cam.json
+# Config file: ~/vqa_ai_cam/config/vqa-ai-cam.json
 #
 # Usage:
 #   python3 vqa_ai_cam.py ask "Do you see a human?" yes --image foto.jpg
