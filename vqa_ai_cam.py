@@ -89,7 +89,7 @@ def mode_single(args, cfg):
         sys.exit(2)
     vqa_models.init_model(cfg["model"], cfg["model_dir"])
     vqa_camera.show_image(image_path, args.timg)
-    questions = vqa_chain.load_questions(args)
+    questions = vqa_chain.load_questions(args, cfg)
     if questions:
         chain_cfg = {"save": args.save, "soundfile": "",
                      "alarm_dir": cfg["alarm_dir"], "capture_limit": cfg["capture_limit"]}
@@ -112,7 +112,7 @@ def mode_single(args, cfg):
 
 def mode_loop(args, cfg):
     camera_cmd = vqa_camera.resolve_camera(args.camera)
-    questions  = vqa_chain.load_questions(args)
+    questions  = vqa_chain.load_questions(args, cfg)
     if not questions:
         print(RED + "Error: provide --config or --question" + RESET)
         sys.exit(2)

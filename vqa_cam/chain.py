@@ -62,7 +62,7 @@ def evaluate_chain(item, image_path, cfg, depth=0, chain_so_far=None, timg=False
     return results
 
 
-def load_questions(args):
+def load_questions(args, cfg=None):
     import json
     if hasattr(args, "config") and args.config:
         with open(args.config) as f:
@@ -76,4 +76,6 @@ def load_questions(args):
         return [{"question": " ".join(args.question),
                  "match": getattr(args, "match", "") or "",
                  "cmd":   getattr(args, "cmd",   "") or ""}]
+    if cfg and cfg.get("questions"):
+        return cfg["questions"]
     return []
