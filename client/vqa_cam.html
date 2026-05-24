@@ -1222,7 +1222,7 @@
     input.focus();
   }
 
-  async function evaluateChain(item, depth) {
+  async function evaluateChain(item, depth, preChip) {
     const question = item.question || "";
     const match    = item.match || "";
     const cmd      = item.cmd || "";
@@ -1231,7 +1231,7 @@
 
     if (!question) return;
 
-    const chip = addPendingChip(question);
+    const chip = preChip || addPendingChip(question);
     chip.style.marginLeft = (depth * 16) + "px";
     const answer = await askServer(question);
     const matched = match && answer.includes(match);
@@ -1281,15 +1281,17 @@
       btn.textContent = "Foto aufnehmen";
       return;
     }
+    // Chips sofort anzeigen — noch vor dem Foto
     document.getElementById("answers-bar").innerHTML = "";
+    const preChips = questions.map(item => addPendingChip(item.question || ""));
     try {
       await capturePhoto();
       btn.innerHTML = '<span class="spinner"></span>Analyse läuft...';
       document.getElementById("followup-row").classList.add("visible");
       statTotal++;
       updateStats();
-      for (const item of questions) {
-        await evaluateChain(item, 0);
+      for (let i = 0; i < questions.length; i++) {
+        await evaluateChain(questions[i], 0, preChips[i]);
       }
       const now = new Date();
       document.getElementById("stat-last").textContent =
