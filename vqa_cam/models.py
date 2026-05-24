@@ -234,10 +234,12 @@ def _run_vbert(tokenizer, model, img, question):
     return _tpool(_infer)
 
 
+_MOONDREAM_REVISION = "2024-08-26"
+
 def _load_moondream(model_id, model_dir):
     from transformers import AutoModelForCausalLM, AutoTokenizer, logging as tlog
     tlog.set_verbosity_error()
-    kwargs = {"trust_remote_code": True, "cache_dir": model_dir}
+    kwargs = {"trust_remote_code": True, "revision": _MOONDREAM_REVISION, "cache_dir": model_dir}
     if os.path.exists(model_dir) and os.listdir(model_dir):
         kwargs["local_files_only"] = True
     else:
