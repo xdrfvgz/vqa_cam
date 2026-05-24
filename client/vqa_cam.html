@@ -787,6 +787,19 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* Spinner-Varianten für Modelle-Tab */
+  .mq-ask-btn .spinner {
+    width: 13px; height: 13px; border-width: 2px;
+    border-color: rgba(255,255,255,0.35); border-top-color: #fff;
+    margin: 0;
+  }
+  .mq-answer .spinner,
+  .mq-cmp-ans .spinner {
+    width: 9px; height: 9px; border-width: 1.5px;
+    border-color: var(--border-strong); border-top-color: var(--text-2);
+    margin-right: 5px; flex-shrink: 0;
+  }
+
   /* ── Mobile ── */
   @media (max-width: 540px) {
     body { padding: 16px 12px 60px; }
@@ -1482,7 +1495,7 @@
     const question = document.getElementById("mq-cmp-question").value.trim();
     if (!question || !mqSelected.size) return;
     const btn = document.getElementById("mq-cmp-btn");
-    btn.disabled = true; btn.textContent = "···";
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
     const results = document.getElementById("mq-cmp-results");
     results.innerHTML = "";
     let loaded = [];
@@ -1497,7 +1510,9 @@
       row.className = "mq-cmp-result pending";
       const name = document.createElement("span"); name.className = "mq-cmp-name"; name.textContent = m;
       const ans  = document.createElement("span"); ans.className  = "mq-cmp-ans";
-      ans.textContent = loaded.includes(m) ? "···" : "lädt... 0s";
+      ans.innerHTML = loaded.includes(m)
+        ? '<span class="spinner"></span>···'
+        : '<span class="spinner"></span>lädt… 0s';
       row.appendChild(name); row.appendChild(ans);
       results.appendChild(row);
       rows[m] = { row, ans, isLoaded: loaded.includes(m) };
@@ -1509,8 +1524,10 @@
       let _cmpTimer = null;
       if (!rows[m].isLoaded) {
         const _t0 = Date.now();
-        rows[m].ans.textContent = "lädt... 0s";
-        _cmpTimer = setInterval(() => { rows[m].ans.textContent = "lädt... " + Math.floor((Date.now() - _t0) / 1000) + "s"; }, 1000);
+        rows[m].ans.innerHTML = '<span class="spinner"></span>lädt… 0s';
+        _cmpTimer = setInterval(() => {
+          rows[m].ans.innerHTML = '<span class="spinner"></span>lädt… ' + Math.floor((Date.now() - _t0) / 1000) + 's';
+        }, 1000);
       }
       try {
         const resp = await fetch(server() + "/ask", {
@@ -1528,7 +1545,7 @@
         rows[m].ans.textContent = "Fehler";
       }
     }
-    btn.disabled = false; btn.textContent = "→";
+    btn.disabled = false; btn.innerHTML = "→";
   }
 
   async function modelsTakePhoto() {
@@ -1641,8 +1658,8 @@
       const matchWord = matchInput.value.trim().toLowerCase();
       if (!question) { qInput.focus(); return; }
 
-      askBtn.disabled    = true;
-      askBtn.textContent = "···";
+      askBtn.disabled  = true;
+      askBtn.innerHTML = '<span class="spinner"></span>';
       addFollowupBtn.style.display = "none";
 
       let loaded = [];
@@ -1658,10 +1675,12 @@
         answerEl.innerHTML = "";
         const tag = document.createElement("span"); tag.className = "mq-answer-model"; tag.textContent = model;
         const txt = document.createElement("span"); txt.className = "mq-answer-text";
-        txt.style.color = "var(--text-3)";
+        txt.style.display = "flex"; txt.style.alignItems = "center";
         const _t0 = Date.now();
-        txt.textContent = "lädt... 0s";
-        _loadTimer = setInterval(() => { txt.textContent = "lädt... " + Math.floor((Date.now() - _t0) / 1000) + "s"; }, 1000);
+        txt.innerHTML = '<span class="spinner"></span>lädt… 0s';
+        _loadTimer = setInterval(() => {
+          txt.innerHTML = '<span class="spinner"></span>lädt… ' + Math.floor((Date.now() - _t0) / 1000) + 's';
+        }, 1000);
         answerEl.appendChild(tag); answerEl.appendChild(txt);
       } else {
         answerEl.style.display = "none";
@@ -1705,8 +1724,8 @@
         answerEl.textContent   = "Fehler: " + e.message;
       }
 
-      askBtn.disabled    = false;
-      askBtn.textContent = "→";
+      askBtn.disabled  = false;
+      askBtn.innerHTML = "→";
     };
 
     askBtn.onclick = doAsk;
