@@ -239,11 +239,12 @@ _MOONDREAM_REVISION = "2024-08-26"
 def _load_moondream(model_id, model_dir):
     from transformers import AutoModelForCausalLM, AutoTokenizer, logging as tlog
     tlog.set_verbosity_error()
-    kwargs = {"trust_remote_code": True, "revision": _MOONDREAM_REVISION, "cache_dir": model_dir}
-    if os.path.exists(model_dir) and os.listdir(model_dir):
-        kwargs["local_files_only"] = True
-    else:
+    is_local = os.path.exists(model_dir) and bool(os.listdir(model_dir))
+    if not is_local:
         print("Downloading Moondream2 (~1.8 GB)...")
+    # revision immer angeben; local_files_only weglassen damit HF-Cache
+    # selbst entscheidet ob Download nötig ist
+    kwargs = {"trust_remote_code": True, "revision": _MOONDREAM_REVISION, "cache_dir": model_dir}
     with contextlib.redirect_stderr(io.StringIO()):
         p = AutoTokenizer.from_pretrained(model_id, **kwargs)
         m = AutoModelForCausalLM.from_pretrained(model_id, **kwargs)
