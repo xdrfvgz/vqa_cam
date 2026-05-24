@@ -234,26 +234,26 @@ def _run_vbert(tokenizer, model, img, question):
     return _tpool(_infer)
 
 
-_MOONDREAM_REVISION = "2024-08-26"
-
 def _load_moondream(model_id, model_dir):
-    from transformers import AutoModelForCausalLM, AutoTokenizer, logging as tlog
-    tlog.set_verbosity_error()
+    try:
+        import moondream as md
+    except ImportError:
+        raise RuntimeError(
+            "Moondream benötigt das moondream-Paket. Installieren mit:\n"
+            "  pip install moondream"
+        )
     is_local = os.path.exists(model_dir) and bool(os.listdir(model_dir))
     if not is_local:
-        print("Downloading Moondream2 (~1.8 GB)...")
-    # revision immer angeben; local_files_only weglassen damit HF-Cache
-    # selbst entscheidet ob Download nötig ist
-    kwargs = {"trust_remote_code": True, "revision": _MOONDREAM_REVISION, "cache_dir": model_dir}
-    with contextlib.redirect_stderr(io.StringIO()):
-        p = AutoTokenizer.from_pretrained(model_id, **kwargs)
-        m = AutoModelForCausalLM.from_pretrained(model_id, **kwargs)
-    m.eval()
-    return p, m
+        print("Downloading Moondream2 (~900MB int8)...")
+    m = md.vl(model="moondream-2b-int8")
+    return None, m
 
 
 def _run_moondream(tokenizer, model, img, question):
     def _infer():
-        enc = model.encode_image(img)
-        return model.answer_question(enc, question, tokenizer)
+        encoded = model.encode_image(img)
+        result = model.query(encoded, question)
+        if isinstance(result, dict):
+            return result.get("answer", str(result))
+        return str(result)
     return _tpool(_infer)
