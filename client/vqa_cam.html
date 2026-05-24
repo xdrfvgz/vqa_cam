@@ -1495,7 +1495,7 @@
     const question = document.getElementById("mq-cmp-question").value.trim();
     if (!question || !mqSelected.size) return;
     const btn = document.getElementById("mq-cmp-btn");
-    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>···';
     const results = document.getElementById("mq-cmp-results");
     results.innerHTML = "";
     let loaded = [];
@@ -1659,7 +1659,7 @@
       if (!question) { qInput.focus(); return; }
 
       askBtn.disabled  = true;
-      askBtn.innerHTML = '<span class="spinner"></span>';
+      askBtn.innerHTML = '<span class="spinner"></span>···';
       addFollowupBtn.style.display = "none";
 
       let loaded = [];
@@ -1669,22 +1669,22 @@
         loaded = ld.loaded || [];
       } catch {}
       let _loadTimer = null;
+      answerEl.className = "mq-answer";
+      answerEl.style.display = "flex";
+      answerEl.innerHTML = "";
+      const tag = document.createElement("span"); tag.className = "mq-answer-model"; tag.textContent = model;
+      const txt = document.createElement("span"); txt.className = "mq-answer-text";
+      txt.style.display = "flex"; txt.style.alignItems = "center";
       if (!loaded.includes(model)) {
-        answerEl.className = "mq-answer";
-        answerEl.style.display = "flex";
-        answerEl.innerHTML = "";
-        const tag = document.createElement("span"); tag.className = "mq-answer-model"; tag.textContent = model;
-        const txt = document.createElement("span"); txt.className = "mq-answer-text";
-        txt.style.display = "flex"; txt.style.alignItems = "center";
         const _t0 = Date.now();
         txt.innerHTML = '<span class="spinner"></span>lädt… 0s';
         _loadTimer = setInterval(() => {
           txt.innerHTML = '<span class="spinner"></span>lädt… ' + Math.floor((Date.now() - _t0) / 1000) + 's';
         }, 1000);
-        answerEl.appendChild(tag); answerEl.appendChild(txt);
       } else {
-        answerEl.style.display = "none";
+        txt.innerHTML = '<span class="spinner"></span>···';
       }
+      answerEl.appendChild(tag); answerEl.appendChild(txt);
 
       const body = { question, model };
       if (mqImage.type === "alarm")   body.alarm_file   = mqImage.file;
