@@ -472,12 +472,8 @@
   #lightbox-followup {
     position: fixed;
     bottom: 16px;
-    left: 0;
-    right: 0;
-    position: fixed;
-    bottom: 16px;
-    left: 0;
-    right: 0;
+    left: 50%;
+    transform: translateX(-50%);
     width: 100%;
     max-width: 480px;
     padding: 0 16px;
@@ -536,13 +532,42 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  #questions-list:empty::after {
+    content: "Keine Fragen konfiguriert";
+    display: block;
+    padding: 10px 0 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-3);
+    text-align: center;
+    letter-spacing: 0.04em;
+  }
+
+  .add-question-bar {
+    padding: 2px 16px 12px;
+  }
+  .add-question-btn {
+    background: transparent;
+    border: 1px dashed var(--border-strong);
+    border-radius: 6px;
+    color: var(--text-3);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.78rem;
+    padding: 6px 12px;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.15s;
+    letter-spacing: 0.02em;
+  }
+  .add-question-btn:hover { border-color: var(--accent); color: var(--text); background: var(--bg); }
+
 </style>
 </head>
 <body>
 
 <header>
   <h1>vqa / surveillance</h1>
-  <div class="dot" id="status-dot"></div>
+  <div class="dot" id="status-dot" title="Verbindungsstatus"></div>
 </header>
 
 <div class="tabs">
@@ -583,6 +608,9 @@
         </span>
       </div>
       <div id="questions-list"></div>
+      <div class="add-question-bar">
+        <button class="add-question-btn" onclick="addQuestion()">+ Frage hinzufügen</button>
+      </div>
     </div>
   </div>
 </div>
@@ -635,6 +663,7 @@
   <div class="card full">
     <div class="gallery-toolbar">
       <button id="gallery-reload" onclick="loadGallery()">↺ neu laden</button>
+      <span id="captures-count" style="font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--text-3);margin-left:auto;"></span>
     </div>
     <div class="gallery-section-title">Alarme</div>
     <div id="gallery-container"></div>
@@ -683,11 +712,16 @@
     const row = document.createElement("div");
     row.className = "question-row";
     row.innerHTML =
-      '<input type="text" placeholder="What do you see?" value="' + q + '">' +
-      '<input type="text" class="match-word" placeholder="match" value="' + m + '">' +
-      '<input type="text" class="cmd-input" placeholder="cmd bei Match" value="' + cmd + '">' +
-      '<button class="del-btn" onclick="this.parentElement.remove()">×</button>';
+      '<input type="text" placeholder="Frage (englisch, z.B. Do you see a person?)" value="' + q.replace(/"/g, "&quot;") + '">' +
+      '<input type="text" class="match-word" placeholder="Stichwort" value="' + m.replace(/"/g, "&quot;") + '">' +
+      '<input type="text" class="cmd-input" placeholder="Befehl bei Match (optional)" value="' + cmd.replace(/"/g, "&quot;") + '">' +
+      '<button class="del-btn" aria-label="Frage entfernen">×</button>';
+    row.querySelector(".del-btn").addEventListener("click", () => {
+      row.remove();
+      saveSettings();
+    });
     list.appendChild(row);
+    return row;
   }
 
   function getQuestions() {
@@ -830,14 +864,16 @@
   async function captureAndAsk() {
     if (loopRunning) return;
     const btn = document.getElementById("snap-btn");
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span>Läuft...';
     const questions = getQuestions();
     if (questions.length === 0) {
-      btn.disabled = false;
-      btn.textContent = "Foto aufnehmen";
+      const bar = document.getElementById("answers-bar");
+      bar.innerHTML = "";
+      const chip = addPendingChip("Keine Fragen konfiguriert");
+      resolveChip(chip, "Frage hinzufügen ↓", "no-match");
       return;
     }
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Läuft...';
     document.getElementById("answers-bar").innerHTML = "";
     try {
       await capturePhoto();
@@ -947,7 +983,10 @@
 
   async function startLoop() {
     const questions = getQuestions();
-    if (questions.length === 0) return;
+    if (questions.length === 0) {
+      alert("Bitte zuerst mindestens eine Frage konfigurieren.");
+      return;
+    }
     const payload = {
       questions: questions,
       interval:  parseInt(document.getElementById("cfg-interval").value) || 5,
@@ -1071,6 +1110,8 @@
       const data = await r.json();
       container.innerHTML = "";
       const files = (data.files || []);
+      const countEl = document.getElementById("captures-count");
+      if (countEl && data.total !== undefined) countEl.textContent = data.total + " / " + data.limit + " Aufnahmen";
       if (files.length === 0) { empty.style.display = "block"; return; }
       // Timestamp aus Dateiname: 00001_20260510_001503.jpg
       const items = files.map(f => {
@@ -1103,6 +1144,7 @@
   }
 
   async function deleteAlarm(filename, btn) {
+    if (!confirm("Alarm-Bild löschen?")) return;
     btn.textContent = "…";
     try {
       const r    = await fetch(server() + "/alarms/" + filename, { method: "DELETE" });
@@ -1184,7 +1226,63 @@
     input.focus();
   }
 
-  addQuestion("Do you see green", "yes", "");
+  // Settings persistence
+  function saveSettings() {
+    try {
+      localStorage.setItem("vqa_cam_settings", JSON.stringify({
+        questions: getQuestions(),
+        interval:  document.getElementById("cfg-interval").value,
+        sound:     document.getElementById("cfg-sound").checked,
+        soundfile: document.getElementById("cfg-soundfile").value,
+        notify:    document.getElementById("cfg-notify").checked,
+        save:      document.getElementById("cfg-save").checked,
+        saveAll:   document.getElementById("cfg-save-all").checked,
+        server:    document.getElementById("cfg-server").value,
+        maxlog:    document.getElementById("cfg-maxlog").value,
+      }));
+    } catch(e) {}
+  }
+
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem("vqa_cam_settings");
+      if (!raw) return false;
+      const s = JSON.parse(raw);
+      if (s.interval)              document.getElementById("cfg-interval").value   = s.interval;
+      if (s.soundfile)             document.getElementById("cfg-soundfile").value  = s.soundfile;
+      if (s.sound   !== undefined) document.getElementById("cfg-sound").checked    = s.sound;
+      if (s.notify  !== undefined) document.getElementById("cfg-notify").checked   = s.notify;
+      if (s.save    !== undefined) document.getElementById("cfg-save").checked     = s.save;
+      if (s.saveAll !== undefined) document.getElementById("cfg-save-all").checked = s.saveAll;
+      if (s.server)                document.getElementById("cfg-server").value     = s.server;
+      if (s.maxlog)                document.getElementById("cfg-maxlog").value     = s.maxlog;
+      if (s.questions && s.questions.length > 0) {
+        document.getElementById("questions-list").innerHTML = "";
+        s.questions.forEach(q => addQuestion(q.question, q.match, q.cmd));
+        return true;
+      }
+    } catch(e) {}
+    return false;
+  }
+
+  function initSettingsListeners() {
+    ["cfg-interval","cfg-sound","cfg-soundfile","cfg-notify","cfg-save","cfg-save-all","cfg-server","cfg-maxlog"]
+      .forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener("change", saveSettings);
+      });
+    const list = document.getElementById("questions-list");
+    list.addEventListener("input", saveSettings);
+    list.addEventListener("change", saveSettings);
+  }
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") closeLightbox();
+  });
+
+  const hadSaved = loadSettings();
+  if (!hadSaved) addQuestion("Do you see green", "yes", "");
+  initSettingsListeners();
   checkHealth();
   setInterval(checkHealth, 10000);
   connectSocket();
