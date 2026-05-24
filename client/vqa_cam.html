@@ -943,6 +943,9 @@
     <div class="models-image-area" id="models-image-area">
       <span class="models-image-placeholder">Kein Bild</span>
     </div>
+    <p id="mq-no-image-hint" style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--red);margin-bottom:10px;display:none;">
+      ↑ Bitte zuerst Foto aufnehmen oder aus Galerie wählen
+    </p>
     <div class="models-controls">
       <button class="btn" style="flex:none;padding:9px 14px;border:1px solid var(--border);border-radius:8px;" onclick="modelsTakePhoto()">Foto aufnehmen</button>
       <select id="models-source-select" class="models-source-select" onchange="mqSelectImage(this)">
@@ -967,7 +970,7 @@
     <div id="mq-panel-cmp" style="display:none">
       <div class="mq-cmp-row">
         <input type="text" class="mq-cmp-input" id="mq-cmp-question" placeholder="Frage eingeben...">
-        <button class="mq-cmp-ask" id="mq-cmp-btn" onclick="mqCmpAsk()">→</button>
+        <button class="mq-cmp-ask" id="mq-cmp-btn" onclick="mqCmpAsk()" disabled>→</button>
       </div>
       <div class="mq-model-chips" id="mq-model-chips"></div>
       <div class="mq-cmp-results" id="mq-cmp-results"></div>
@@ -1396,6 +1399,15 @@
   let mqMode     = "chain";
   let mqSelected = new Set(["blip"]);
 
+  function mqSetImage(type, file) {
+    mqImage = { type, file };
+    const hint = document.getElementById("mq-no-image-hint");
+    if (hint) hint.style.display = "none";
+    document.querySelectorAll(".mq-ask-btn").forEach(b => { b.disabled = false; });
+    const cmpBtn = document.getElementById("mq-cmp-btn");
+    if (cmpBtn) cmpBtn.disabled = false;
+  }
+
   async function initModelsTab() {
     try {
       const mr = await fetch(server() + "/models");
@@ -1462,6 +1474,11 @@
   }
 
   async function mqCmpAsk() {
+    if (!mqImage.type) {
+      document.getElementById("mq-no-image-hint").style.display = "block";
+      document.getElementById("models-image-area").scrollIntoView({ behavior: "smooth" });
+      return;
+    }
     const question = document.getElementById("mq-cmp-question").value.trim();
     if (!question || !mqSelected.size) return;
     const btn = document.getElementById("mq-cmp-btn");
@@ -1519,21 +1536,21 @@
     area.innerHTML = '<span class="models-image-placeholder">Aufnahme...</span>';
     try {
       await fetch(server() + "/photo", { method: "POST" });
-      mqImage = { type: "current", file: null };
+      mqSetImage("current", null);
       const img = document.createElement("img");
       img.src = server() + "/image?t=" + Date.now();
       area.innerHTML = "";
       area.appendChild(img);
       document.getElementById("models-source-select").value = "";
     } catch {
-      area.innerHTML = '<span class="models-image-placeholder">Fehler</span>';
+      area.innerHTML = '<span class="models-image-placeholder">Fehler bei Aufnahme</span>';
     }
   }
 
   function mqSelectImage(sel) {
     const opt = sel.options[sel.selectedIndex];
     if (!opt || !opt.value) return;
-    mqImage = { type: opt.dataset.itype, file: opt.value };
+    mqSetImage(opt.dataset.itype, opt.value);
     const endpoint = opt.dataset.itype === "alarm" ? "alarms" : "captures";
     const url = server() + "/" + endpoint + "/" + encodeURIComponent(opt.value);
     const area = document.getElementById("models-image-area");
@@ -1582,6 +1599,7 @@
     const askBtn       = document.createElement("button");
     askBtn.className   = "mq-ask-btn";
     askBtn.textContent = "→";
+    askBtn.disabled    = !mqImage.type;
 
     const delBtn       = document.createElement("button");
     delBtn.className   = "mq-del-btn";
