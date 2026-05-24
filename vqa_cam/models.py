@@ -3,12 +3,15 @@
 # vqa_cam/models.py – model loading, LRU cache, and inference
 #
 # Supported models:
-#   vilt      – dandelin/vilt-b32-finetuned-vqa   (~200MB, fast, fixed vocab)
-#   blip      – Salesforce/blip-vqa-base          (~400MB, generative)
-#   blip-l    – Salesforce/blip-vqa-capfilt-large (~900MB, better accuracy)
-#   git       – microsoft/git-base-vqav2          (~700MB, generative)
-#   vbert     – uclanlp/visualbert-vqa            (~400MB, fixed vocab, needs detector)
-#   moondream – vikhyatk/moondream2               (~1.8GB, full sentences)
+#   vilt      – dandelin/vilt-b32-finetuned-vqa       (~200MB, fast, fixed vocab)
+#   blip      – Salesforce/blip-vqa-base              (~400MB, generative)
+#   blip-l    – Salesforce/blip-vqa-capfilt-large     (~900MB, better accuracy)
+#   git       – microsoft/git-base-vqav2              (~700MB, generative)
+#   vbert     – uclanlp/visualbert-vqa                (~400MB, fixed vocab, needs detector)
+#   moondream – vikhyatk/moondream2                   (~900MB int8, full sentences)
+#   blip2     – Salesforce/blip2-opt-2.7b             (~5GB, much better than blip)
+#   phi3v     – microsoft/Phi-3.5-vision-instruct     (~4.2GB, excellent reasoning)
+#   llava     – llava-hf/llava-1.5-7b-hf              (~4GB 4-bit, needs bitsandbytes)
 #
 # Cache: up to MAX_LOADED models held in memory at once (LRU eviction).
 # Configure via env VQA_MAX_LOADED_MODELS (default 2).
@@ -29,6 +32,9 @@ MODEL_DEFAULTS = {
     "git":       {"model_id": "microsoft/git-base-vqav2",              "dir": "~/vqa-models/git"},
     "vbert":     {"model_id": "uclanlp/visualbert-vqa",                "dir": "~/vqa-models/vbert"},
     "moondream": {"model_id": "vikhyatk/moondream2",                   "dir": "~/vqa-models/moondream"},
+    "blip2":     {"model_id": "Salesforce/blip2-opt-2.7b",             "dir": "~/vqa-models/blip2"},
+    "phi3v":     {"model_id": "microsoft/Phi-3.5-vision-instruct",     "dir": "~/vqa-models/phi3v"},
+    "llava":     {"model_id": "llava-hf/llava-1.5-7b-hf",             "dir": "~/vqa-models/llava"},
 }
 
 MAX_LOADED = max(1, int(os.environ.get("VQA_MAX_LOADED_MODELS", "2")))
@@ -65,6 +71,12 @@ def init_model(model_name, model_dir=None, quiet=False):
             p, m = _load_vbert(model_id, model_dir)
         elif model_name == "moondream":
             p, m = _load_moondream(model_id, model_dir)
+        elif model_name == "blip2":
+            p, m = _load_blip2(model_id, model_dir)
+        elif model_name == "phi3v":
+            p, m = _load_phi3v(model_id, model_dir)
+        elif model_name == "llava":
+            p, m = _load_llava(model_id, model_dir)
         _cache[model_name] = (p, m)
         return model_name
 
@@ -93,6 +105,12 @@ def run_vqa(image_path, question, model_name=None):
         return _run_vbert(processor, model, img, question)
     elif model_name == "moondream":
         return _run_moondream(processor, model, img, question)
+    elif model_name == "blip2":
+        return _run_blip2(processor, model, img, question)
+    elif model_name == "phi3v":
+        return _run_phi3v(processor, model, img, question)
+    elif model_name == "llava":
+        return _run_llava(processor, model, img, question)
 
 
 def current_model():
@@ -256,4 +274,104 @@ def _run_moondream(tokenizer, model, img, question):
         if isinstance(result, dict):
             return result.get("answer", str(result))
         return str(result)
+    return _tpool(_infer)
+
+
+def _load_blip2(model_id, model_dir):
+    from transformers import Blip2Processor, Blip2ForConditionalGeneration, logging as tlog
+    tlog.set_verbosity_error()
+    if not os.path.exists(model_dir):
+        print("Downloading BLIP-2 (~5GB)...")
+        p = Blip2Processor.from_pretrained(model_id)
+        m = Blip2ForConditionalGeneration.from_pretrained(model_id)
+        p.save_pretrained(model_dir)
+        m.save_pretrained(model_dir, safe_serialization=True)
+    else:
+        with contextlib.redirect_stderr(io.StringIO()):
+            p = Blip2Processor.from_pretrained(model_dir, local_files_only=True)
+            m = Blip2ForConditionalGeneration.from_pretrained(model_dir, local_files_only=True)
+    m.eval()
+    return p, m
+
+
+def _run_blip2(processor, model, img, question):
+    import torch
+    inputs = processor(images=img, text=question, return_tensors="pt")
+    def _infer():
+        with torch.no_grad():
+            out = model.generate(**inputs, max_new_tokens=50)
+        return processor.decode(out[0], skip_special_tokens=True).strip()
+    return _tpool(_infer)
+
+
+def _load_phi3v(model_id, model_dir):
+    from transformers import AutoModelForCausalLM, AutoProcessor, logging as tlog
+    tlog.set_verbosity_error()
+    kwargs = {"trust_remote_code": True, "num_crops": 4}
+    if not os.path.exists(model_dir):
+        print("Downloading Phi-3.5-Vision (~4.2GB)...")
+        p = AutoProcessor.from_pretrained(model_id, **kwargs)
+        m = AutoModelForCausalLM.from_pretrained(model_id, trust_remote_code=True,
+                                                  torch_dtype="auto", _attn_implementation="eager")
+        p.save_pretrained(model_dir)
+        m.save_pretrained(model_dir, safe_serialization=True)
+    else:
+        with contextlib.redirect_stderr(io.StringIO()):
+            p = AutoProcessor.from_pretrained(model_dir, local_files_only=True, **kwargs)
+            m = AutoModelForCausalLM.from_pretrained(model_dir, local_files_only=True,
+                                                      trust_remote_code=True, torch_dtype="auto",
+                                                      _attn_implementation="eager")
+    m.eval()
+    return p, m
+
+
+def _run_phi3v(processor, model, img, question):
+    import torch
+    messages = [{"role": "user", "content": "<|image_1|>\n" + question}]
+    prompt = processor.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    inputs = processor(prompt, [img], return_tensors="pt")
+    def _infer():
+        with torch.no_grad():
+            ids = model.generate(**inputs, max_new_tokens=100,
+                                 eos_token_id=processor.tokenizer.eos_token_id)
+        ids = ids[:, inputs["input_ids"].shape[1]:]
+        return processor.batch_decode(ids, skip_special_tokens=True)[0].strip()
+    return _tpool(_infer)
+
+
+def _load_llava(model_id, model_dir):
+    from transformers import LlavaForConditionalGeneration, AutoProcessor, logging as tlog
+    tlog.set_verbosity_error()
+    try:
+        import bitsandbytes  # noqa
+        load_kwargs = {"load_in_4bit": True}
+    except ImportError:
+        print("\033[93mWarning: bitsandbytes not installed – LLaVA loads in fp32 (~14GB). "
+              "Install with: pip install bitsandbytes\033[0m")
+        load_kwargs = {}
+    if not os.path.exists(model_dir):
+        print("Downloading LLaVA-1.5-7B (~4GB 4-bit / ~14GB fp32)...")
+        p = AutoProcessor.from_pretrained(model_id)
+        m = LlavaForConditionalGeneration.from_pretrained(model_id, **load_kwargs)
+        p.save_pretrained(model_dir)
+        if not load_kwargs:
+            m.save_pretrained(model_dir, safe_serialization=True)
+    else:
+        with contextlib.redirect_stderr(io.StringIO()):
+            p = AutoProcessor.from_pretrained(model_dir, local_files_only=True)
+            m = LlavaForConditionalGeneration.from_pretrained(model_dir, local_files_only=True,
+                                                              **load_kwargs)
+    m.eval()
+    return p, m
+
+
+def _run_llava(processor, model, img, question):
+    import torch
+    prompt = "USER: <image>\n" + question + "\nASSISTANT:"
+    inputs = processor(text=prompt, images=img, return_tensors="pt")
+    def _infer():
+        with torch.no_grad():
+            out = model.generate(**inputs, max_new_tokens=100)
+        full = processor.decode(out[0], skip_special_tokens=True)
+        return full.split("ASSISTANT:")[-1].strip()
     return _tpool(_infer)
