@@ -787,6 +787,46 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* ── Mobile ── */
+  @media (max-width: 540px) {
+    body { padding: 16px 12px 60px; }
+
+    /* Tab-Leiste: kleinere Schrift auf engen Screens */
+    .tab-btn { font-size: 0.72rem; padding: 8px 6px; letter-spacing: 0; }
+
+    /* Einstellungen: Label über Input statt nebeneinander */
+    .cfg-row { flex-direction: column; align-items: stretch; gap: 6px; padding: 10px 14px; }
+    .cfg-row-check { flex-direction: row; align-items: center; justify-content: space-between; }
+    .cfg-label { min-width: auto; font-size: 0.8rem; color: var(--text-2); }
+    .cfg-row input[type="text"],
+    .cfg-row input[type="number"] { width: 100%; }
+    .cfg-row input[type="checkbox"] { flex-shrink: 0; width: 20px; height: 20px; }
+
+    /* Kette-Modus Zeile 1: Modell-Select kompakter */
+    .mq-model-sel { font-size: 0.68rem; padding: 7px 6px; }
+
+    /* Vergleich-Modus: Input-Zeile sicherstellen */
+    .mq-cmp-row { gap: 6px; }
+    .mq-cmp-input { font-size: 0.78rem; }
+
+    /* Bessere Touch-Targets */
+    .btn { padding: 14px 10px; }
+    .mq-ask-btn { padding: 10px 16px; min-width: 44px; }
+    .mq-del-btn { padding: 8px 12px; min-width: 36px; }
+    .mq-cmp-ask { padding: 10px 18px; }
+
+    /* Galerie: 1 Spalte auf sehr engen Screens */
+    .gallery-grid { grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 12px 12px; }
+
+    /* Stats-Zeile umbrechen */
+    #inline-stats { font-size: 0.68rem; gap: 4px; }
+  }
+
+  @media (max-width: 380px) {
+    .gallery-grid { grid-template-columns: 1fr; }
+    .tab-btn { font-size: 0.65rem; padding: 7px 4px; }
+  }
+
 </style>
 </head>
 <body>
@@ -848,7 +888,7 @@
       <input type="number" id="cfg-interval" value="5" min="1" max="3600">
     </div>
     <div class="cfg-section">Alarm</div>
-    <div class="cfg-row">
+    <div class="cfg-row cfg-row-check">
       <span class="cfg-label">Alarm-Ton</span>
       <input type="checkbox" id="cfg-sound" checked>
     </div>
@@ -856,16 +896,16 @@
       <span class="cfg-label">Sounddatei</span>
       <input type="text" id="cfg-soundfile" value="default_alarm_sound.wav">
     </div>
-    <div class="cfg-row">
+    <div class="cfg-row cfg-row-check">
       <span class="cfg-label">Benachrichtigung</span>
       <input type="checkbox" id="cfg-notify" checked>
     </div>
-    <div class="cfg-row">
+    <div class="cfg-row cfg-row-check">
       <span class="cfg-label">Bild speichern (Alarm)</span>
       <input type="checkbox" id="cfg-save" checked>
     </div>
     <div class="cfg-section">Aufnahmen</div>
-    <div class="cfg-row">
+    <div class="cfg-row cfg-row-check">
       <span class="cfg-label">Alle Aufnahmen speichern</span>
       <input type="checkbox" id="cfg-save-all">
     </div>
