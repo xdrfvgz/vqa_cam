@@ -258,17 +258,19 @@ def _load_moondream(model_id, model_dir):
     except ImportError:
         raise RuntimeError("pip install moondream")
     os.makedirs(model_dir, exist_ok=True)
-    mf_files = [f for f in os.listdir(model_dir) if f.endswith(".mf")]
+    mf_files = [f for f in os.listdir(model_dir) if f.endswith(".mf") or f.endswith(".mf.gz")]
     if mf_files:
         return None, md.vl(local=os.path.join(model_dir, mf_files[0]))
     try:
-        from huggingface_hub import hf_hub_download
-        print("Downloading Moondream2 (~900MB)...")
-        mf_path = hf_hub_download(
-            repo_id=model_id,
-            filename="moondream-2b-int8.mf",
-            local_dir=model_dir,
-        )
+        from huggingface_hub import hf_hub_download, list_repo_files
+        print("Suche Moondream2-Modell auf HuggingFace...")
+        repo_files = list(list_repo_files(model_id))
+        mf_name = next((f for f in repo_files if f.endswith(".mf") or f.endswith(".mf.gz")), None)
+        if not mf_name:
+            raise RuntimeError("Keine .mf-Datei in " + model_id + " gefunden. "
+                               "Verfügbare Dateien: " + str(repo_files[:10]))
+        print("Downloading " + mf_name + "...")
+        mf_path = hf_hub_download(repo_id=model_id, filename=mf_name, local_dir=model_dir)
         return None, md.vl(local=mf_path)
     except Exception as e:
         raise RuntimeError("Moondream download fehlgeschlagen: " + str(e))
