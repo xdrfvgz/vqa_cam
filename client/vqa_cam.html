@@ -1285,6 +1285,7 @@
     // Chips sofort anzeigen — noch vor dem Foto
     document.getElementById("answers-bar").innerHTML = "";
     const preChips = questions.map(item => addPendingChip(item.question || ""));
+    await new Promise(r => setTimeout(r, 80)); // sicherstellen dass Chips gerendert sind
     try {
       await capturePhoto();
       btn.innerHTML = '<span class="spinner"></span>Analyse läuft...';
