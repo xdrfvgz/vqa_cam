@@ -12,6 +12,7 @@
 #   blip2     – Salesforce/blip2-opt-2.7b             (~5GB, much better than blip)
 #   phi3v     – microsoft/Phi-3.5-vision-instruct     (~4.2GB, excellent reasoning)
 #   llava     – llava-hf/llava-1.5-7b-hf              (~4GB 4-bit, needs bitsandbytes)
+#   phi3v-onnx– microsoft/Phi-3-vision-128k-instruct-onnx-cpu (~4GB int4, CPU-only, no GPU needed)
 #
 # Cache: up to MAX_LOADED models held in memory at once (LRU eviction).
 # Configure via env VQA_MAX_LOADED_MODELS (default 2).
@@ -35,6 +36,8 @@ MODEL_DEFAULTS = {
     "blip2":     {"model_id": "Salesforce/blip2-opt-2.7b",             "dir": "~/vqa-models/blip2"},
     "phi3v":     {"model_id": "microsoft/Phi-3.5-vision-instruct",     "dir": "~/vqa-models/phi3v"},
     "llava":     {"model_id": "llava-hf/llava-1.5-7b-hf",             "dir": "~/vqa-models/llava"},
+    "phi3v-onnx": {"model_id": "microsoft/Phi-3-vision-128k-instruct-onnx-cpu",
+                                                                       "dir": "~/vqa-models/phi3v-onnx"},
 }
 
 MAX_LOADED = max(1, int(os.environ.get("VQA_MAX_LOADED_MODELS", "2")))
@@ -77,6 +80,8 @@ def init_model(model_name, model_dir=None, quiet=False):
             p, m = _load_phi3v(model_id, model_dir)
         elif model_name == "llava":
             p, m = _load_llava(model_id, model_dir)
+        elif model_name == "phi3v-onnx":
+            p, m = _load_phi3v_onnx(model_id, model_dir)
         _cache[model_name] = (p, m)
         return model_name
 
@@ -111,6 +116,8 @@ def run_vqa(image_path, question, model_name=None):
         return _run_phi3v(processor, model, img, question)
     elif model_name == "llava":
         return _run_llava(processor, model, img, question)
+    elif model_name == "phi3v-onnx":
+        return _run_phi3v_onnx(processor, model, img, question)
 
 
 def current_model():
@@ -383,4 +390,72 @@ def _run_llava(processor, model, img, question):
             out = model.generate(**inputs, max_new_tokens=100)
         full = processor.decode(out[0], skip_special_tokens=True)
         return full.split("ASSISTANT:")[-1].strip()
+    return _tpool(_infer)
+
+
+def _find_onnx_dir(base_dir):
+    if not os.path.isdir(base_dir):
+        return None
+    if os.path.exists(os.path.join(base_dir, "genai_config.json")):
+        return base_dir
+    for name in sorted(os.listdir(base_dir)):
+        candidate = os.path.join(base_dir, name)
+        if os.path.isdir(candidate) and os.path.exists(os.path.join(candidate, "genai_config.json")):
+            return candidate
+    return None
+
+
+def _load_phi3v_onnx(model_id, model_dir):
+    try:
+        import onnxruntime_genai as og  # noqa
+    except ImportError:
+        raise RuntimeError("pip install onnxruntime-genai")
+    onnx_dir = _find_onnx_dir(model_dir)
+    if onnx_dir is None:
+        from huggingface_hub import snapshot_download
+        print("Downloading Phi-3-Vision ONNX int4 (~4GB)...")
+        snapshot_download(
+            repo_id=model_id,
+            local_dir=model_dir,
+            allow_patterns=["cpu-int4-rtn-block-32-acc-level-4/**", "*.md"],
+        )
+        onnx_dir = _find_onnx_dir(model_dir)
+    if onnx_dir is None:
+        raise RuntimeError("Kein ONNX-Modell in " + model_dir + " gefunden (genai_config.json fehlt)")
+    import onnxruntime_genai as og
+    model = og.Model(onnx_dir)
+    processor = model.create_multimodal_processor()
+    return processor, model
+
+
+def _run_phi3v_onnx(processor, model, img, question):
+    import onnxruntime_genai as og
+    import tempfile
+
+    def _infer():
+        tokenizer = og.Tokenizer(model)
+        tokenizer_stream = tokenizer.create_stream()
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+            tmp_path = tmp.name
+        try:
+            img.save(tmp_path, "JPEG")
+            images = og.Images.open(tmp_path)
+            prompt = "<|user|>\n<|image_1|>\n" + question + "<|end|>\n<|assistant|>\n"
+            inputs = processor(prompt, images=images)
+            params = og.GeneratorParams(model)
+            params.set_inputs(inputs)
+            params.set_search_options(max_length=512)
+            generator = og.Generator(model, params)
+            parts = []
+            while not generator.is_done():
+                generator.compute_logits()
+                generator.generate_next_token()
+                parts.append(tokenizer_stream.decode(generator.get_next_tokens()[0]))
+            return "".join(parts).strip()
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
     return _tpool(_infer)
