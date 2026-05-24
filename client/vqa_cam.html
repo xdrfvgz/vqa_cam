@@ -1233,6 +1233,7 @@
 
     const chip = preChip || addPendingChip(question);
     chip.style.marginLeft = (depth * 16) + "px";
+    await new Promise(r => requestAnimationFrame(r)); // Chip erst rendern, dann anfragen
     const answer = await askServer(question);
     const matched = match && answer.includes(match);
     resolveChip(chip, answer, matched ? "match" : "no-match");
