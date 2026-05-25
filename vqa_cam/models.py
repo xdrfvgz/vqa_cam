@@ -273,20 +273,14 @@ def _load_moondream(model_id, model_dir):
     )
     if not has_weights:
         print("Downloading Moondream2 (~3.9GB)...")
-        tok = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+        from huggingface_hub import snapshot_download
+        snapshot_download(repo_id=model_id, local_dir=model_dir)
+    with contextlib.redirect_stderr(io.StringIO()):
+        tok = AutoTokenizer.from_pretrained(model_dir, local_files_only=True, trust_remote_code=True)
         m = AutoModelForCausalLM.from_pretrained(
-            model_id, trust_remote_code=True, torch_dtype="auto",
+            model_dir, local_files_only=True, trust_remote_code=True,
+            torch_dtype="auto",
         )
-        os.makedirs(model_dir, exist_ok=True)
-        tok.save_pretrained(model_dir)
-        m.save_pretrained(model_dir, safe_serialization=True)
-    else:
-        with contextlib.redirect_stderr(io.StringIO()):
-            tok = AutoTokenizer.from_pretrained(model_dir, local_files_only=True, trust_remote_code=True)
-            m = AutoModelForCausalLM.from_pretrained(
-                model_dir, local_files_only=True, trust_remote_code=True,
-                torch_dtype="auto", low_cpu_mem_usage=False,
-            )
     m.eval()
     return tok, m
 
