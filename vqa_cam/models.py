@@ -275,6 +275,16 @@ def _load_moondream(model_id, model_dir):
         print("Downloading Moondream2 (~3.9GB)...")
         from huggingface_hub import snapshot_download
         snapshot_download(repo_id=model_id, local_dir=model_dir)
+    # Workaround: transformers scans imports recursively from cache but copies files
+    # one at a time, missing relative imports. Pre-populate the cache manually.
+    import shutil
+    hf_modules = os.path.expanduser(
+        "~/.cache/huggingface/modules/transformers_modules/" + os.path.basename(model_dir)
+    )
+    os.makedirs(hf_modules, exist_ok=True)
+    for f in os.listdir(model_dir):
+        if f.endswith(".py"):
+            shutil.copy2(os.path.join(model_dir, f), hf_modules)
     with contextlib.redirect_stderr(io.StringIO()):
         tok = AutoTokenizer.from_pretrained(model_dir, local_files_only=True, trust_remote_code=True)
         m = AutoModelForCausalLM.from_pretrained(
