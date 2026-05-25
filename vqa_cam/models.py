@@ -260,36 +260,36 @@ def _run_vbert(tokenizer, model, img, question):
 
 
 def _load_moondream(model_id, model_dir):
-    try:
-        import moondream as md
-    except ImportError:
-        raise RuntimeError("pip install moondream")
-    os.makedirs(model_dir, exist_ok=True)
-    mf_files = [f for f in os.listdir(model_dir) if f.endswith(".mf") or f.endswith(".mf.gz")]
-    if mf_files:
-        return None, md.vl(local=os.path.join(model_dir, mf_files[0]))
-    try:
-        from huggingface_hub import hf_hub_download, list_repo_files
-        print("Suche Moondream2-Modell auf HuggingFace...")
-        repo_files = list(list_repo_files(model_id))
-        mf_name = next((f for f in repo_files if f.endswith(".mf") or f.endswith(".mf.gz")), None)
-        if not mf_name:
-            raise RuntimeError("Keine .mf-Datei in " + model_id + " gefunden. "
-                               "Verfügbare Dateien: " + str(repo_files[:10]))
-        print("Downloading " + mf_name + "...")
-        mf_path = hf_hub_download(repo_id=model_id, filename=mf_name, local_dir=model_dir)
-        return None, md.vl(local=mf_path)
-    except Exception as e:
-        raise RuntimeError("Moondream download fehlgeschlagen: " + str(e))
+    from transformers import AutoModelForCausalLM, AutoTokenizer, logging as tlog
+    tlog.set_verbosity_error()
+    has_weights = os.path.isdir(model_dir) and any(
+        f.endswith(".safetensors") or f.endswith(".bin")
+        for f in os.listdir(model_dir)
+    )
+    if not has_weights:
+        print("Downloading Moondream2 (~1.8GB)...")
+        tok = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+        m = AutoModelForCausalLM.from_pretrained(
+            model_id, trust_remote_code=True, torch_dtype="auto",
+        )
+        os.makedirs(model_dir, exist_ok=True)
+        tok.save_pretrained(model_dir)
+        m.save_pretrained(model_dir, safe_serialization=True)
+    else:
+        with contextlib.redirect_stderr(io.StringIO()):
+            tok = AutoTokenizer.from_pretrained(model_dir, local_files_only=True, trust_remote_code=True)
+            m = AutoModelForCausalLM.from_pretrained(
+                model_dir, local_files_only=True, trust_remote_code=True,
+                torch_dtype="auto",
+            )
+    m.eval()
+    return tok, m
 
 
 def _run_moondream(tokenizer, model, img, question):
     def _infer():
-        encoded = model.encode_image(img)
-        result = model.query(encoded, question)
-        if isinstance(result, dict):
-            return result.get("answer", str(result))
-        return str(result)
+        enc = model.encode_image(img)
+        return model.answer_question(enc, question, tokenizer)
     return _tpool(_infer)
 
 
