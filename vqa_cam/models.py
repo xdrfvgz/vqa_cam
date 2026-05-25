@@ -260,8 +260,13 @@ def _run_vbert(tokenizer, model, img, question):
 
 
 def _load_moondream(model_id, model_dir):
-    from transformers import AutoModelForCausalLM, AutoTokenizer, logging as tlog
+    from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedModel, logging as tlog
     tlog.set_verbosity_error()
+    # Newer transformers calls self.all_tied_weights_keys but some versions don't define it
+    if not hasattr(PreTrainedModel, 'all_tied_weights_keys'):
+        PreTrainedModel.all_tied_weights_keys = property(
+            lambda self: {k: None for k in (getattr(self, '_tied_weights_keys', None) or [])}
+        )
     has_weights = os.path.isdir(model_dir) and any(
         f.endswith(".safetensors") or f.endswith(".bin")
         for f in os.listdir(model_dir)
@@ -271,7 +276,6 @@ def _load_moondream(model_id, model_dir):
         tok = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
         m = AutoModelForCausalLM.from_pretrained(
             model_id, trust_remote_code=True, torch_dtype="auto",
-            low_cpu_mem_usage=False,
         )
         os.makedirs(model_dir, exist_ok=True)
         tok.save_pretrained(model_dir)
