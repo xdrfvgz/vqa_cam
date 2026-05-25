@@ -267,10 +267,11 @@ def _load_moondream(model_id, model_dir):
         for f in os.listdir(model_dir)
     )
     if not has_weights:
-        print("Downloading Moondream2 (~1.8GB)...")
+        print("Downloading Moondream2 (~3.9GB)...")
         tok = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
         m = AutoModelForCausalLM.from_pretrained(
             model_id, trust_remote_code=True, torch_dtype="auto",
+            low_cpu_mem_usage=False,
         )
         os.makedirs(model_dir, exist_ok=True)
         tok.save_pretrained(model_dir)
@@ -280,7 +281,7 @@ def _load_moondream(model_id, model_dir):
             tok = AutoTokenizer.from_pretrained(model_dir, local_files_only=True, trust_remote_code=True)
             m = AutoModelForCausalLM.from_pretrained(
                 model_dir, local_files_only=True, trust_remote_code=True,
-                torch_dtype="auto",
+                torch_dtype="auto", low_cpu_mem_usage=False,
             )
     m.eval()
     return tok, m
