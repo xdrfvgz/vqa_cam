@@ -11,7 +11,7 @@
 #   moondream – vikhyatk/moondream2                   (~900MB int8, full sentences)
 #   blip2     – Salesforce/blip2-opt-2.7b             (~5GB, much better than blip)
 #   phi3v     – microsoft/Phi-3.5-vision-instruct     (~4.2GB, excellent reasoning)
-#   llava     – llava-hf/llava-1.5-7b-hf              (~4GB 4-bit, needs bitsandbytes)
+#   llava     – llava-hf/llava-1.5-7b-hf              (~14GB download, ~4GB RAM with bitsandbytes 4-bit)
 #   phi3v-onnx– microsoft/Phi-3-vision-128k-instruct-onnx-cpu (~4GB int4, CPU-only, no GPU needed)
 #
 # Cache: up to MAX_LOADED models held in memory at once (LRU eviction).
@@ -375,7 +375,7 @@ def _load_llava(model_id, model_dir):
               "Install with: pip install bitsandbytes\033[0m")
         load_kwargs = {}
     if not os.path.exists(model_dir):
-        print("Downloading LLaVA-1.5-7B (~4GB 4-bit / ~14GB fp32)...")
+        print("Downloading LLaVA-1.5-7B (~14GB, quantisiert auf ~4GB RAM mit bitsandbytes)...")
         p = AutoProcessor.from_pretrained(model_id)
         m = LlavaForConditionalGeneration.from_pretrained(model_id, **load_kwargs)
         p.save_pretrained(model_dir)
