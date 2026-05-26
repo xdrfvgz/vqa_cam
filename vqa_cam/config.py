@@ -25,7 +25,6 @@ _MODEL_DIRS = {
     "phi3v":     "~/vqa-models/phi3v",
     "llava":      "~/vqa-models/llava",
     "phi3v-onnx":  "~/vqa-models/phi3v-onnx",
-    "florence2":   "~/vqa-models/florence2",
 }
 
 _HF_MODEL_IDS = {
@@ -39,7 +38,6 @@ _HF_MODEL_IDS = {
     "phi3v":      "microsoft/Phi-3.5-vision-instruct",
     "llava":      "llava-hf/llava-1.5-7b-hf",
     "phi3v-onnx": "microsoft/Phi-3-vision-128k-instruct-onnx-cpu",
-    "florence2":  "microsoft/Florence-2-large-ft",
 }
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))

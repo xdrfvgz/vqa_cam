@@ -38,7 +38,6 @@ MODEL_DEFAULTS = {
     "llava":     {"model_id": "llava-hf/llava-1.5-7b-hf",             "dir": "~/vqa-models/llava"},
     "phi3v-onnx": {"model_id": "microsoft/Phi-3-vision-128k-instruct-onnx-cpu",
                                                                        "dir": "~/vqa-models/phi3v-onnx"},
-    "florence2":  {"model_id": "microsoft/Florence-2-large-ft",        "dir": "~/vqa-models/florence2"},
 }
 
 MAX_LOADED = max(1, int(os.environ.get("VQA_MAX_LOADED_MODELS", "2")))
@@ -83,8 +82,6 @@ def init_model(model_name, model_dir=None, quiet=False):
             p, m = _load_llava(model_id, model_dir)
         elif model_name == "phi3v-onnx":
             p, m = _load_phi3v_onnx(model_id, model_dir)
-        elif model_name == "florence2":
-            p, m = _load_florence2(model_id, model_dir)
         _cache[model_name] = (p, m)
         return model_name
 
@@ -121,8 +118,6 @@ def run_vqa(image_path, question, model_name=None):
         return _run_llava(processor, model, img, question)
     elif model_name == "phi3v-onnx":
         return _run_phi3v_onnx(processor, model, img, question)
-    elif model_name == "florence2":
-        return _run_florence2(processor, model, img, question)
 
 
 def current_model():
@@ -474,46 +469,3 @@ def _run_phi3v_onnx(processor, model, img, question):
 
     return _tpool(_infer)
 
-
-def _load_florence2(model_id, model_dir):
-    from transformers import AutoModelForCausalLM, AutoProcessor, logging as tlog
-    tlog.set_verbosity_error()
-    has_weights = os.path.isdir(model_dir) and any(
-        f.endswith(".safetensors") or f.endswith(".bin")
-        for f in os.listdir(model_dir)
-    )
-    if not has_weights:
-        print("Downloading Florence-2-large-ft (~770MB)...")
-        from huggingface_hub import snapshot_download
-        snapshot_download(repo_id=model_id, local_dir=model_dir)
-    with contextlib.redirect_stderr(io.StringIO()):
-        p = AutoProcessor.from_pretrained(model_dir, trust_remote_code=True, local_files_only=True)
-        m = AutoModelForCausalLM.from_pretrained(
-            model_dir, trust_remote_code=True, local_files_only=True,
-            torch_dtype="auto",
-        )
-    m.eval()
-    return p, m
-
-
-def _run_florence2(processor, model, img, question):
-    import torch
-    task = "<VQA>"
-    inputs = processor(text=task + question, images=img, return_tensors="pt")
-    if model.dtype == torch.bfloat16 and "pixel_values" in inputs:
-        inputs["pixel_values"] = inputs["pixel_values"].to(torch.bfloat16)
-
-    def _infer():
-        with torch.no_grad():
-            ids = model.generate(
-                input_ids=inputs["input_ids"],
-                pixel_values=inputs.get("pixel_values"),
-                max_new_tokens=256,
-                num_beams=3,
-            )
-        text = processor.batch_decode(ids, skip_special_tokens=False)[0]
-        parsed = processor.post_process_generation(text, task=task,
-                                                   image_size=(img.width, img.height))
-        return parsed.get(task, text).strip()
-
-    return _tpool(_infer)
