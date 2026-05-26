@@ -3,16 +3,13 @@
 # vqa_cam/models.py – model loading, LRU cache, and inference
 #
 # Supported models:
-#   vilt      – dandelin/vilt-b32-finetuned-vqa       (~200MB, fast, fixed vocab)
-#   blip      – Salesforce/blip-vqa-base              (~400MB, generative)
-#   blip-l    – Salesforce/blip-vqa-capfilt-large     (~900MB, better accuracy)
-#   git       – microsoft/git-base-vqav2              (~700MB, generative)
-#   vbert     – uclanlp/visualbert-vqa                (~400MB, fixed vocab, needs detector)
-#   moondream – vikhyatk/moondream2                   (~900MB int8, full sentences)
-#   blip2     – Salesforce/blip2-opt-2.7b             (~5GB, much better than blip)
-#   phi3v     – microsoft/Phi-3.5-vision-instruct     (~4.2GB, excellent reasoning)
-#   llava     – llava-hf/llava-1.5-7b-hf              (~14GB download, ~4GB RAM with bitsandbytes 4-bit)
-#   phi3v-onnx– microsoft/Phi-3-vision-128k-instruct-onnx-cpu (~4GB int4, CPU-only, no GPU needed)
+#   vilt     – dandelin/vilt-b32-finetuned-vqa       (~200MB, fast, fixed vocab)
+#   blip     – Salesforce/blip-vqa-base              (~400MB, generative)
+#   blip-l   – Salesforce/blip-vqa-capfilt-large     (~900MB, better accuracy)
+#   git      – microsoft/git-base-vqav2              (~700MB, generative)
+#   vbert    – uclanlp/visualbert-vqa                (~400MB, fixed vocab, needs detector)
+#   blip2    – Salesforce/blip2-opt-2.7b             (~15GB download)
+#   qwen2vl  – Qwen/Qwen2-VL-2B-Instruct            (~4GB, best quality for 8GB RAM)
 #
 # Cache: up to MAX_LOADED models held in memory at once (LRU eviction).
 # Configure via env VQA_MAX_LOADED_MODELS (default 2).
@@ -27,17 +24,13 @@ os.environ["HF_HUB_DISABLE_XET"] = "1"
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 
 MODEL_DEFAULTS = {
-    "vilt":      {"model_id": "dandelin/vilt-b32-finetuned-vqa",       "dir": "~/vqa-models/vilt"},
-    "blip":      {"model_id": "Salesforce/blip-vqa-base",              "dir": "~/vqa-models/blip"},
-    "blip-l":    {"model_id": "Salesforce/blip-vqa-capfilt-large",     "dir": "~/vqa-models/blip-l"},
-    "git":       {"model_id": "microsoft/git-base-vqav2",              "dir": "~/vqa-models/git"},
-    "vbert":     {"model_id": "uclanlp/visualbert-vqa",                "dir": "~/vqa-models/vbert"},
-    "moondream": {"model_id": "vikhyatk/moondream2",                   "dir": "~/vqa-models/moondream"},
-    "blip2":     {"model_id": "Salesforce/blip2-opt-2.7b",             "dir": "~/vqa-models/blip2"},
-    "phi3v":     {"model_id": "microsoft/Phi-3.5-vision-instruct",     "dir": "~/vqa-models/phi3v"},
-    "llava":     {"model_id": "llava-hf/llava-1.5-7b-hf",             "dir": "~/vqa-models/llava"},
-    "phi3v-onnx": {"model_id": "microsoft/Phi-3-vision-128k-instruct-onnx-cpu",
-                                                                       "dir": "~/vqa-models/phi3v-onnx"},
+    "vilt":    {"model_id": "dandelin/vilt-b32-finetuned-vqa",   "dir": "~/vqa-models/vilt"},
+    "blip":    {"model_id": "Salesforce/blip-vqa-base",          "dir": "~/vqa-models/blip"},
+    "blip-l":  {"model_id": "Salesforce/blip-vqa-capfilt-large", "dir": "~/vqa-models/blip-l"},
+    "git":     {"model_id": "microsoft/git-base-vqav2",          "dir": "~/vqa-models/git"},
+    "vbert":   {"model_id": "uclanlp/visualbert-vqa",            "dir": "~/vqa-models/vbert"},
+    "blip2":   {"model_id": "Salesforce/blip2-opt-2.7b",         "dir": "~/vqa-models/blip2"},
+    "qwen2vl": {"model_id": "Qwen/Qwen2-VL-2B-Instruct",        "dir": "~/vqa-models/qwen2vl"},
 }
 
 MAX_LOADED = max(1, int(os.environ.get("VQA_MAX_LOADED_MODELS", "2")))
@@ -72,16 +65,10 @@ def init_model(model_name, model_dir=None, quiet=False):
             p, m = _load_git(model_id, model_dir)
         elif model_name == "vbert":
             p, m = _load_vbert(model_id, model_dir)
-        elif model_name == "moondream":
-            p, m = _load_moondream(model_id, model_dir)
         elif model_name == "blip2":
             p, m = _load_blip2(model_id, model_dir)
-        elif model_name == "phi3v":
-            p, m = _load_phi3v(model_id, model_dir)
-        elif model_name == "llava":
-            p, m = _load_llava(model_id, model_dir)
-        elif model_name == "phi3v-onnx":
-            p, m = _load_phi3v_onnx(model_id, model_dir)
+        elif model_name == "qwen2vl":
+            p, m = _load_qwen2vl(model_id, model_dir)
         _cache[model_name] = (p, m)
         return model_name
 
@@ -108,16 +95,10 @@ def run_vqa(image_path, question, model_name=None):
         return _run_git(processor, model, img, question)
     elif model_name == "vbert":
         return _run_vbert(processor, model, img, question)
-    elif model_name == "moondream":
-        return _run_moondream(processor, model, img, question)
     elif model_name == "blip2":
         return _run_blip2(processor, model, img, question)
-    elif model_name == "phi3v":
-        return _run_phi3v(processor, model, img, question)
-    elif model_name == "llava":
-        return _run_llava(processor, model, img, question)
-    elif model_name == "phi3v-onnx":
-        return _run_phi3v_onnx(processor, model, img, question)
+    elif model_name == "qwen2vl":
+        return _run_qwen2vl(processor, model, img, question)
 
 
 def current_model():
@@ -259,54 +240,11 @@ def _run_vbert(tokenizer, model, img, question):
     return _tpool(_infer)
 
 
-def _load_moondream(model_id, model_dir):
-    from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedModel, logging as tlog
-    tlog.set_verbosity_error()
-    # Newer transformers calls self.all_tied_weights_keys but some versions don't define it
-    if not hasattr(PreTrainedModel, 'all_tied_weights_keys'):
-        PreTrainedModel.all_tied_weights_keys = property(
-            lambda self: {k: None for k in (getattr(self, '_tied_weights_keys', None) or [])}
-        )
-    has_weights = os.path.isdir(model_dir) and any(
-        f.endswith(".safetensors") or f.endswith(".bin")
-        for f in os.listdir(model_dir)
-    )
-    if not has_weights:
-        print("Downloading Moondream2 (~3.9GB)...")
-        from huggingface_hub import snapshot_download
-        snapshot_download(repo_id=model_id, local_dir=model_dir)
-    # Workaround: transformers scans imports recursively from cache but copies files
-    # one at a time, missing relative imports. Pre-populate the cache manually.
-    import shutil
-    hf_modules = os.path.expanduser(
-        "~/.cache/huggingface/modules/transformers_modules/" + os.path.basename(model_dir)
-    )
-    os.makedirs(hf_modules, exist_ok=True)
-    for f in os.listdir(model_dir):
-        if f.endswith(".py"):
-            shutil.copy2(os.path.join(model_dir, f), hf_modules)
-    with contextlib.redirect_stderr(io.StringIO()):
-        tok = AutoTokenizer.from_pretrained(model_dir, local_files_only=True, trust_remote_code=True)
-        m = AutoModelForCausalLM.from_pretrained(
-            model_dir, local_files_only=True, trust_remote_code=True,
-            torch_dtype="auto",
-        )
-    m.eval()
-    return tok, m
-
-
-def _run_moondream(tokenizer, model, img, question):
-    def _infer():
-        enc = model.encode_image(img)
-        return model.answer_question(enc, question, tokenizer)
-    return _tpool(_infer)
-
-
 def _load_blip2(model_id, model_dir):
     from transformers import Blip2Processor, Blip2ForConditionalGeneration, logging as tlog
     tlog.set_verbosity_error()
     if not os.path.exists(model_dir):
-        print("Downloading BLIP-2 (~5GB)...")
+        print("Downloading BLIP-2 (~15GB)...")
         p = Blip2Processor.from_pretrained(model_id)
         m = Blip2ForConditionalGeneration.from_pretrained(model_id)
         p.save_pretrained(model_dir)
@@ -329,143 +267,40 @@ def _run_blip2(processor, model, img, question):
     return _tpool(_infer)
 
 
-def _load_phi3v(model_id, model_dir):
-    from transformers import AutoModelForCausalLM, AutoProcessor, logging as tlog
+def _load_qwen2vl(model_id, model_dir):
+    from transformers import Qwen2VLForConditionalGeneration, AutoProcessor, logging as tlog
     tlog.set_verbosity_error()
-    kwargs = {"trust_remote_code": True, "num_crops": 4}
-    if not os.path.exists(model_dir):
-        print("Downloading Phi-3.5-Vision (~4.2GB)...")
-        p = AutoProcessor.from_pretrained(model_id, **kwargs)
-        m = AutoModelForCausalLM.from_pretrained(model_id, trust_remote_code=True,
-                                                  torch_dtype="auto", _attn_implementation="eager")
-        p.save_pretrained(model_dir)
-        m.save_pretrained(model_dir, safe_serialization=True)
-    else:
-        with contextlib.redirect_stderr(io.StringIO()):
-            p = AutoProcessor.from_pretrained(model_dir, local_files_only=True, **kwargs)
-            m = AutoModelForCausalLM.from_pretrained(model_dir, local_files_only=True,
-                                                      trust_remote_code=True, torch_dtype="auto",
-                                                      _attn_implementation="eager")
-    m.eval()
-    return p, m
-
-
-def _run_phi3v(processor, model, img, question):
-    import torch
-    messages = [{"role": "user", "content": "<|image_1|>\n" + question}]
-    prompt = processor.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-    inputs = processor(prompt, [img], return_tensors="pt")
-    def _infer():
-        with torch.no_grad():
-            ids = model.generate(**inputs, max_new_tokens=100,
-                                 eos_token_id=processor.tokenizer.eos_token_id)
-        ids = ids[:, inputs["input_ids"].shape[1]:]
-        return processor.batch_decode(ids, skip_special_tokens=True)[0].strip()
-    return _tpool(_infer)
-
-
-def _load_llava(model_id, model_dir):
-    from transformers import LlavaForConditionalGeneration, AutoProcessor, logging as tlog
-    tlog.set_verbosity_error()
-    try:
-        import bitsandbytes  # noqa
-        load_kwargs = {"load_in_4bit": True}
-    except ImportError:
-        print("\033[93mWarning: bitsandbytes not installed – LLaVA loads in fp32 (~14GB). "
-              "Install with: pip install bitsandbytes\033[0m")
-        load_kwargs = {}
-    if not os.path.exists(model_dir):
-        print("Downloading LLaVA-1.5-7B (~14GB, quantisiert auf ~4GB RAM mit bitsandbytes)...")
-        p = AutoProcessor.from_pretrained(model_id)
-        m = LlavaForConditionalGeneration.from_pretrained(model_id, **load_kwargs)
-        p.save_pretrained(model_dir)
-        if not load_kwargs:
-            m.save_pretrained(model_dir, safe_serialization=True)
-    else:
-        with contextlib.redirect_stderr(io.StringIO()):
-            p = AutoProcessor.from_pretrained(model_dir, local_files_only=True)
-            m = LlavaForConditionalGeneration.from_pretrained(model_dir, local_files_only=True,
-                                                              **load_kwargs)
-    m.eval()
-    return p, m
-
-
-def _run_llava(processor, model, img, question):
-    import torch
-    prompt = "USER: <image>\n" + question + "\nASSISTANT:"
-    inputs = processor(text=prompt, images=img, return_tensors="pt")
-    def _infer():
-        with torch.no_grad():
-            out = model.generate(**inputs, max_new_tokens=100)
-        full = processor.decode(out[0], skip_special_tokens=True)
-        return full.split("ASSISTANT:")[-1].strip()
-    return _tpool(_infer)
-
-
-def _find_onnx_dir(base_dir):
-    if not os.path.isdir(base_dir):
-        return None
-    if os.path.exists(os.path.join(base_dir, "genai_config.json")):
-        return base_dir
-    for name in sorted(os.listdir(base_dir)):
-        candidate = os.path.join(base_dir, name)
-        if os.path.isdir(candidate) and os.path.exists(os.path.join(candidate, "genai_config.json")):
-            return candidate
-    return None
-
-
-def _load_phi3v_onnx(model_id, model_dir):
-    try:
-        import onnxruntime_genai as og  # noqa
-    except ImportError:
-        raise RuntimeError("pip install onnxruntime-genai")
-    onnx_dir = _find_onnx_dir(model_dir)
-    if onnx_dir is None:
+    has_weights = os.path.isdir(model_dir) and any(
+        f.endswith(".safetensors") or f.endswith(".bin")
+        for f in os.listdir(model_dir)
+    )
+    if not has_weights:
+        print("Downloading Qwen2-VL-2B (~4GB)...")
         from huggingface_hub import snapshot_download
-        print("Downloading Phi-3-Vision ONNX int4 (~4GB)...")
-        snapshot_download(
-            repo_id=model_id,
-            local_dir=model_dir,
-            allow_patterns=["cpu-int4-rtn-block-32-acc-level-4/**", "*.md"],
+        snapshot_download(repo_id=model_id, local_dir=model_dir)
+    import torch
+    with contextlib.redirect_stderr(io.StringIO()):
+        p = AutoProcessor.from_pretrained(model_dir, local_files_only=True)
+        m = Qwen2VLForConditionalGeneration.from_pretrained(
+            model_dir, local_files_only=True, torch_dtype=torch.float16,
         )
-        onnx_dir = _find_onnx_dir(model_dir)
-    if onnx_dir is None:
-        raise RuntimeError("Kein ONNX-Modell in " + model_dir + " gefunden (genai_config.json fehlt)")
-    import onnxruntime_genai as og
-    model = og.Model(onnx_dir)
-    processor = model.create_multimodal_processor()
-    return processor, model
+    m.eval()
+    return p, m
 
 
-def _run_phi3v_onnx(processor, model, img, question):
-    import onnxruntime_genai as og
-    import tempfile
+def _run_qwen2vl(processor, model, img, question):
+    import torch
+    messages = [{"role": "user", "content": [
+        {"type": "image"},
+        {"type": "text", "text": question},
+    ]}]
+    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    inputs = processor(text=[text], images=[img], return_tensors="pt")
 
     def _infer():
-        tokenizer = og.Tokenizer(model)
-        tokenizer_stream = tokenizer.create_stream()
-        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
-            tmp_path = tmp.name
-        try:
-            img.save(tmp_path, "JPEG")
-            images = og.Images.open(tmp_path)
-            prompt = "<|user|>\n<|image_1|>\n" + question + "<|end|>\n<|assistant|>\n"
-            inputs = processor(prompt, images=images)
-            params = og.GeneratorParams(model)
-            params.set_inputs(inputs)
-            params.set_search_options(max_length=512)
-            generator = og.Generator(model, params)
-            parts = []
-            while not generator.is_done():
-                generator.compute_logits()
-                generator.generate_next_token()
-                parts.append(tokenizer_stream.decode(generator.get_next_tokens()[0]))
-            return "".join(parts).strip()
-        finally:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
+        with torch.no_grad():
+            ids = model.generate(**inputs, max_new_tokens=128)
+        out = ids[:, inputs["input_ids"].shape[1]:]
+        return processor.batch_decode(out, skip_special_tokens=True)[0].strip()
 
     return _tpool(_infer)
-

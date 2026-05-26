@@ -15,29 +15,23 @@ CAMERA_COMMANDS = {
 }
 
 _MODEL_DIRS = {
-    "vilt":      "~/vqa-models/vilt",
-    "blip":      "~/vqa-models/blip",
-    "blip-l":    "~/vqa-models/blip-l",
-    "git":       "~/vqa-models/git",
-    "vbert":     "~/vqa-models/vbert",
-    "moondream": "~/vqa-models/moondream",
-    "blip2":     "~/vqa-models/blip2",
-    "phi3v":     "~/vqa-models/phi3v",
-    "llava":      "~/vqa-models/llava",
-    "phi3v-onnx":  "~/vqa-models/phi3v-onnx",
+    "vilt":    "~/vqa-models/vilt",
+    "blip":    "~/vqa-models/blip",
+    "blip-l":  "~/vqa-models/blip-l",
+    "git":     "~/vqa-models/git",
+    "vbert":   "~/vqa-models/vbert",
+    "blip2":   "~/vqa-models/blip2",
+    "qwen2vl": "~/vqa-models/qwen2vl",
 }
 
 _HF_MODEL_IDS = {
-    "vilt":       "dandelin/vilt-b32-finetuned-vqa",
-    "blip":       "Salesforce/blip-vqa-base",
-    "blip-l":     "Salesforce/blip-vqa-capfilt-large",
-    "git":        "microsoft/git-base-vqav2",
-    "vbert":      "uclanlp/visualbert-vqa",
-    "moondream":  "vikhyatk/moondream2",
-    "blip2":      "Salesforce/blip2-opt-2.7b",
-    "phi3v":      "microsoft/Phi-3.5-vision-instruct",
-    "llava":      "llava-hf/llava-1.5-7b-hf",
-    "phi3v-onnx": "microsoft/Phi-3-vision-128k-instruct-onnx-cpu",
+    "vilt":    "dandelin/vilt-b32-finetuned-vqa",
+    "blip":    "Salesforce/blip-vqa-base",
+    "blip-l":  "Salesforce/blip-vqa-capfilt-large",
+    "git":     "microsoft/git-base-vqav2",
+    "vbert":   "uclanlp/visualbert-vqa",
+    "blip2":   "Salesforce/blip2-opt-2.7b",
+    "qwen2vl": "Qwen/Qwen2-VL-2B-Instruct",
 }
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
