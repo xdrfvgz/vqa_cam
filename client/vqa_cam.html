@@ -505,7 +505,7 @@
     outline: none;
   }
   .mq-input:focus { border-color: var(--accent); }
-  .mq-match {
+  .mq-match, .mq-cmd {
     flex: 1;
     min-width: 0;
     padding: 8px 8px;
@@ -517,7 +517,7 @@
     color: var(--text-2);
     outline: none;
   }
-  .mq-match:focus { border-color: var(--accent); }
+  .mq-match:focus, .mq-cmd:focus { border-color: var(--accent); }
   .mq-ask-btn {
     padding: 8px 14px;
     background: var(--accent);
@@ -977,6 +977,7 @@
     <div id="mq-panel-chain">
       <div class="mq-chain" id="mq-chain"></div>
       <button class="mq-add-top" onclick="mqAddQuestion()">+ Frage hinzufügen</button>
+      <button class="mq-add-top" id="mq-apply-btn" onclick="mqApplyToConfig()" style="border-style:solid;border-color:var(--accent);color:var(--accent);margin-top:4px;">↑ Als Loop-Konfiguration übernehmen</button>
     </div>
 
     <!-- VERGLEICH -->
@@ -1594,6 +1595,38 @@
     return sel;
   }
 
+  function mqCollectItem(item) {
+    const q     = item.querySelector(":scope > .mq-row .mq-input")?.value.trim() || "";
+    const model = item.querySelector(":scope > .mq-row .mq-model-sel")?.value || "";
+    const match = item.querySelector(":scope .mq-match")?.value.trim() || "";
+    const cmd   = item.querySelector(":scope .mq-cmd")?.value.trim() || "";
+    if (!q) return null;
+    const childItem = item.querySelector(":scope > .mq-children > .mq-item");
+    return { question: q, model, match, cmd, followup: childItem ? mqCollectItem(childItem) : null };
+  }
+
+  async function mqApplyToConfig() {
+    const questions = Array.from(document.querySelectorAll("#mq-chain > .mq-item"))
+      .map(mqCollectItem).filter(Boolean);
+    if (!questions.length) return;
+    const btn = document.getElementById("mq-apply-btn");
+    const orig = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "…";
+    try {
+      await fetch(server() + "/loop/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questions })
+      });
+      await fetch(server() + "/loop/save", { method: "POST" });
+      btn.textContent = "✓ Gespeichert";
+    } catch (e) {
+      btn.textContent = "Fehler: " + e.message;
+    }
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
+  }
+
   function mqAddQuestion(parentChain, depth) {
     const chain = parentChain || document.getElementById("mq-chain");
     const d = depth || 0;
@@ -1617,6 +1650,12 @@
     matchInput.placeholder = "match";
     matchInput.title = "Antwort muss dieses Wort enthalten";
 
+    const cmdInput       = document.createElement("input");
+    cmdInput.type        = "text";
+    cmdInput.className   = "mq-cmd";
+    cmdInput.placeholder = "cmd bei Treffer";
+    cmdInput.title       = "Shell-Befehl der bei Match ausgeführt wird";
+
     const askBtn       = document.createElement("button");
     askBtn.className   = "mq-ask-btn";
     askBtn.textContent = "→";
@@ -1630,6 +1669,7 @@
     row1.appendChild(modelSel);
     row1.appendChild(qInput);
     row2.appendChild(matchInput);
+    row2.appendChild(cmdInput);
     row2.appendChild(askBtn);
     row2.appendChild(delBtn);
     item.appendChild(row1);
