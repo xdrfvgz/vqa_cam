@@ -295,12 +295,12 @@ def _run_qwen2vl(processor, model, img, question):
         {"type": "text", "text": question},
     ]}]
     text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-    inputs = processor(text=[text], images=[img], return_tensors="pt")
+    inputs = processor(text=[text], images=[img], padding=True, return_tensors="pt")
 
     def _infer():
         with torch.no_grad():
             ids = model.generate(**inputs, max_new_tokens=128)
-        out = ids[:, inputs["input_ids"].shape[1]:]
-        return processor.batch_decode(out, skip_special_tokens=True)[0].strip()
+        trimmed = [out[len(inp):] for inp, out in zip(inputs["input_ids"], ids)]
+        return processor.batch_decode(trimmed, skip_special_tokens=True)[0].strip()
 
     return _tpool(_infer)
