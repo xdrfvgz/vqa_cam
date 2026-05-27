@@ -564,7 +564,7 @@
     gap: 10px;
   }
   .mq-add-followup {
-    display: none;
+    display: inline-block;
     margin: 4px 0 0 2px;
     padding: 3px 10px;
     background: transparent;
@@ -578,39 +578,6 @@
     align-self: flex-start;
   }
   .mq-add-followup:hover { border-color: var(--accent); color: var(--text); }
-  .mq-inline-followup {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 2px;
-  }
-  .mq-inline-followup input {
-    flex: 1;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 6px 9px;
-    color: var(--text);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 0.8rem;
-    outline: none;
-    transition: border-color 0.15s;
-  }
-  .mq-inline-followup input:focus { border-color: var(--accent); }
-  .mq-inline-followup input::placeholder { color: var(--text-3); }
-  .mq-inline-followup button {
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 6px 11px;
-    color: var(--text-2);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 0.78rem;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .mq-inline-followup button:hover { border-color: var(--accent); color: var(--text); }
-  .mq-inline-followup button:disabled { color: var(--text-3); cursor: not-allowed; }
   .mq-add-top {
     padding: 8px 16px;
     background: transparent;
@@ -1627,76 +1594,6 @@
     return sel;
   }
 
-  function mqShowInlineFollowup(container, model, imageBody) {
-    container.style.display = "flex";
-    container.style.flexDirection = "column";
-
-    const row = document.createElement("div");
-    row.className = "mq-inline-followup";
-
-    const inp = document.createElement("input");
-    inp.type = "text";
-    inp.placeholder = "Folgefrage…";
-
-    const btn = document.createElement("button");
-    btn.textContent = "→";
-
-    row.appendChild(inp);
-    row.appendChild(btn);
-    container.appendChild(row);
-    inp.focus();
-
-    const submit = async () => {
-      const q = inp.value.trim();
-      if (!q) { inp.focus(); return; }
-
-      btn.disabled = true;
-      inp.disabled = true;
-      inp.value = "";
-
-      const answerEl = document.createElement("div");
-      answerEl.className = "mq-answer";
-      answerEl.style.display = "flex";
-      const atag = document.createElement("span");
-      atag.className = "mq-answer-model";
-      atag.textContent = model;
-      const atxt = document.createElement("span");
-      atxt.className = "mq-answer-text";
-      atxt.innerHTML = '<span class="spinner"></span>···';
-      answerEl.appendChild(atag);
-      answerEl.appendChild(atxt);
-      container.insertBefore(answerEl, row);
-
-      try {
-        const body = Object.assign({ question: q, model }, imageBody);
-        const resp = await fetch(server() + "/ask", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body)
-        });
-        const data = await resp.json();
-        const answer = data.answer || (resp.status === 409
-          ? "Modell '" + model + "' nicht geladen"
-          : (data.error || "?"));
-        answerEl.className = "mq-answer" + (!data.answer ? " errored" : "");
-        atxt.innerHTML = "";
-        atxt.textContent = answer;
-        atag.textContent = data.model || model;
-      } catch (e) {
-        answerEl.className = "mq-answer errored";
-        atxt.innerHTML = "";
-        atxt.textContent = "Fehler: " + e.message;
-      }
-
-      btn.disabled = false;
-      inp.disabled = false;
-      inp.focus();
-    };
-
-    btn.onclick = submit;
-    inp.addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
-  }
-
   function mqAddQuestion(parentChain, depth) {
     const chain = parentChain || document.getElementById("mq-chain");
     const d = depth || 0;
@@ -1748,6 +1645,17 @@
     children.style.display = "none";
     item.appendChild(children);
 
+    const addFollowupBtn       = document.createElement("button");
+    addFollowupBtn.className   = "mq-add-followup";
+    addFollowupBtn.textContent = "+ Folgefrage";
+    addFollowupBtn.onclick = () => {
+      children.style.display = "flex";
+      children.style.flexDirection = "column";
+      mqAddQuestion(children, d + 1);
+      addFollowupBtn.style.display = "none";
+    };
+    item.appendChild(addFollowupBtn);
+
     const doAsk = async () => {
       const question = qInput.value.trim();
       const model    = modelSel.value;
@@ -1756,8 +1664,6 @@
 
       askBtn.disabled  = true;
       askBtn.innerHTML = '<span class="spinner"></span>···';
-      children.innerHTML = "";
-      children.style.display = "none";
 
       let loaded = [];
       try {
@@ -1813,10 +1719,14 @@
         answerEl.appendChild(tag);
         answerEl.appendChild(txt);
 
-        const imageBody = {};
-        if (mqImage.type === "alarm")   imageBody.alarm_file   = mqImage.file;
-        if (mqImage.type === "capture") imageBody.capture_file = mqImage.file;
-        mqShowInlineFollowup(children, model, imageBody);
+        const childItems = Array.from(children.querySelectorAll(":scope > .mq-item"));
+        if (childItems.length) {
+          children.style.display = "flex";
+          children.style.flexDirection = "column";
+          for (const child of childItems) {
+            if (child._doAsk) await child._doAsk();
+          }
+        }
       } catch (e) {
         if (_loadTimer) clearInterval(_loadTimer);
         answerEl.className     = "mq-answer errored";
@@ -1828,6 +1738,7 @@
       askBtn.innerHTML = "→";
     };
 
+    item._doAsk = doAsk;
     askBtn.onclick = doAsk;
     qInput.addEventListener("keydown", e => { if (e.key === "Enter") doAsk(); });
 
