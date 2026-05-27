@@ -6,6 +6,7 @@
 #
 # Modes:
 #   ask      – single-shot Q&A, exit 0=match, 1=no match (scriptable)
+#   run      – one-shot against existing image (Motion/MotionEye integration)
 #   single   – analyze image interactively with followup questions
 #   loop     – continuous capture with rule chain, alarms, commands
 #   gallery  – browse saved alarm images in terminal
@@ -73,6 +74,37 @@ def mode_ask(args, cfg):
     if matched and args.cmd:
         subprocess.run(args.cmd, shell=True)
     sys.exit(0 if matched else 1)
+
+
+def mode_run(args, cfg):
+    image_path = args.image
+    if not os.path.exists(image_path):
+        print(RED + "Error: image not found: " + image_path + RESET, file=sys.stderr)
+        sys.exit(2)
+
+    questions = vqa_chain.load_questions(args, cfg)
+    if not questions:
+        print(RED + "Error: no questions configured"
+              " (use web UI 'Übernehmen' or --question / --config)" + RESET, file=sys.stderr)
+        sys.exit(2)
+
+    quiet = getattr(args, "quiet", False)
+    vqa_models.init_model(cfg["model"], cfg["model_dir"], quiet=quiet)
+
+    chain_cfg = {
+        "save":          args.save,
+        "soundfile":     "",
+        "alarm_dir":     cfg["alarm_dir"],
+        "capture_limit": cfg["capture_limit"],
+    }
+
+    any_match = False
+    for item in questions:
+        results = vqa_chain.evaluate_chain(item, image_path, chain_cfg, quiet=quiet)
+        if any(r.get("matched") and r.get("is_leaf") for r in results):
+            any_match = True
+
+    sys.exit(0 if any_match else 1)
 
 
 def mode_single(args, cfg):
@@ -681,6 +713,14 @@ def main():
     p_ask.add_argument("--quiet",  action="store_true")
     add_model(p_ask)
 
+    # run
+    p_run = sub.add_parser("run", help="One-shot: run saved questions against image (Motion/MotionEye)")
+    add_model(p_run)
+    add_questions(p_run)
+    p_run.add_argument("--image",  required=True, help="Image file to analyze")
+    p_run.add_argument("--save",   action="store_true", help="Save alarm image on match")
+    p_run.add_argument("--quiet",  action="store_true", help="Suppress output")
+
     # single
     p_single = sub.add_parser("single", help="Analyze one image interactively")
     add_model(p_single)
@@ -741,6 +781,8 @@ def main():
 
     if args.mode == "ask":
         mode_ask(args, cfg)
+    elif args.mode == "run":
+        mode_run(args, cfg)
     elif args.mode == "single":
         mode_single(args, cfg)
     elif args.mode == "loop":
