@@ -1651,7 +1651,8 @@
       if (!q) { inp.focus(); return; }
 
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span>';
+      inp.disabled = true;
+      inp.value = "";
 
       const answerEl = document.createElement("div");
       answerEl.className = "mq-answer";
@@ -1664,7 +1665,7 @@
       atxt.innerHTML = '<span class="spinner"></span>···';
       answerEl.appendChild(atag);
       answerEl.appendChild(atxt);
-      container.appendChild(answerEl);
+      container.insertBefore(answerEl, row);
 
       try {
         const body = Object.assign({ question: q, model }, imageBody);
@@ -1681,15 +1682,15 @@
         atxt.innerHTML = "";
         atxt.textContent = answer;
         atag.textContent = data.model || model;
-        row.remove();
-        mqShowInlineFollowup(container, model, imageBody);
       } catch (e) {
         answerEl.className = "mq-answer errored";
         atxt.innerHTML = "";
         atxt.textContent = "Fehler: " + e.message;
-        btn.disabled = false;
-        btn.textContent = "→";
       }
+
+      btn.disabled = false;
+      inp.disabled = false;
+      inp.focus();
     };
 
     btn.onclick = submit;
