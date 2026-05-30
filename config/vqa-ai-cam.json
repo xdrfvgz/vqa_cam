@@ -1,5 +1,4 @@
 {
-  "model": "blip",
   "image_path": "~/vqa_ai_cam/images/foto.jpg",
   "alarm_dir": "~/vqa_ai_cam/alarms",
   "capture_dir": "~/vqa_ai_cam/captures",
@@ -9,13 +8,16 @@
   "capture_limit": 100,
   "questions": [
     {
-      "question": "Do you see a human?",
+      "question": "Do you see green?",
+      "model": "blip",
       "match": "yes",
       "cmd": "",
       "followup": {
-        "question": "Is the human moving?",
+        "question": "Do you see plants?",
+        "model": "vilt",
         "match": "yes",
-        "cmd": ""
+        "cmd": "play-audio ~/bck/bak/huggingface-scripts/hug-chat/recognition/ai-recognition/sounds/alarm01.mp3",
+        "followup": null
       }
     }
   ]

@@ -1,0 +1,1 @@
+{"timestamp": "2026-05-27T10:30:55.836524", "question": "Do you see blue", "answer": "yes", "chain": [{"question": "Do you see blue", "answer": "yes", "matched": true}, {"question": "Do you see squares?", "answer": "yes", "matched": true}], "followups": [{"question": "Do you see red?", "answer": "yes", "timestamp": "2026-05-27T10:33:18.752946"}]}
