@@ -80,7 +80,7 @@ def run_vqa(image_path, question, model_name=None):
         if model_name:
             model_name = model_name.lower()
             if model_name not in _cache:
-                raise ValueError("Model '" + model_name + "' not loaded")
+                init_model(model_name)
             _cache.move_to_end(model_name)
         else:
             if not _cache:
