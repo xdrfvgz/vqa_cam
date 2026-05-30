@@ -110,6 +110,9 @@ def mode_run(args, cfg):
 def mode_single(args, cfg):
     image_path = args.image
     if not image_path:
+        if not args.camera:
+            print(RED + "Error: provide --image <file> or --camera <preset>" + RESET)
+            sys.exit(2)
         camera_cmd = vqa_camera.resolve_camera(args.camera)
         image_path = cfg["image_path"]
         print(GRAY + "Taking photo..." + RESET)
@@ -143,6 +146,9 @@ def mode_single(args, cfg):
 
 
 def mode_loop(args, cfg):
+    if not args.camera:
+        print(RED + "Error: --camera <preset> is required for loop mode (termux|rpi|fswebcam)" + RESET)
+        sys.exit(2)
     camera_cmd = vqa_camera.resolve_camera(args.camera)
     questions  = vqa_chain.load_questions(args, cfg)
     if not questions:
@@ -693,7 +699,7 @@ def main():
         p.add_argument("--model-dir", default=None, help="Local model cache directory")
 
     def add_camera(p):
-        p.add_argument("--camera", default="termux",
+        p.add_argument("--camera", default=None,
                        help="Camera preset (termux|rpi|fswebcam) or custom with {output}")
 
     def add_timg(p):
