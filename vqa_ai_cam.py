@@ -716,7 +716,7 @@ def main():
     # run
     p_run = sub.add_parser("run", help="One-shot: run saved questions against image (Motion/MotionEye)")
     add_model(p_run)
-    add_questions(p_run)
+    p_run.add_argument("--config", default=None, help="JSON question chain config (default: from vqa-ai-cam.json)")
     p_run.add_argument("--image",  required=True, help="Image file to analyze")
     p_run.add_argument("--save",   action="store_true", help="Save alarm image on match")
     p_run.add_argument("--quiet",  action="store_true", help="Suppress output")
