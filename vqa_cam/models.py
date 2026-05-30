@@ -200,7 +200,8 @@ def _run_git(processor, model, img, question):
     def _infer():
         with torch.no_grad():
             gen = model.generate(pixel_values=pv, input_ids=ids, max_new_tokens=20)
-        return processor.batch_decode(gen, skip_special_tokens=True)[0].strip()
+        trimmed = [out[len(inp):] for inp, out in zip(ids, gen)]
+        return processor.batch_decode(trimmed, skip_special_tokens=True)[0].strip()
     return _tpool(_infer)
 
 
