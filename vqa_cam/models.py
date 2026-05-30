@@ -54,7 +54,6 @@ def init_model(model_name, model_dir=None, quiet=False):
                 print("\033[90mEvicted from cache: " + evicted + "\033[0m")
         if not quiet:
             print("\n\033[90mLoading model: " + model_name + "\033[0m")
-        print("--->>" + model_name + "<<---")
         defaults  = MODEL_DEFAULTS[model_name]
         model_id  = defaults["model_id"]
         model_dir = model_dir or os.path.expanduser(defaults["dir"])
