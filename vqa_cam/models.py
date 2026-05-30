@@ -195,12 +195,13 @@ def _load_git(model_id, model_dir):
 
 def _run_git(processor, model, img, question):
     import torch
-    pv  = processor(images=img, return_tensors="pt").pixel_values
-    ids = processor(text=question, return_tensors="pt").input_ids
+    inputs = processor(images=img, text=question, return_tensors="pt")
     def _infer():
         with torch.no_grad():
-            gen = model.generate(pixel_values=pv, input_ids=ids, max_new_tokens=20)
-        trimmed = [out[len(inp):] for inp, out in zip(ids, gen)]
+            gen = model.generate(pixel_values=inputs.pixel_values,
+                                 input_ids=inputs.input_ids,
+                                 max_new_tokens=50)
+        trimmed = gen[:, inputs.input_ids.shape[1]:]
         return processor.batch_decode(trimmed, skip_special_tokens=True)[0].strip()
     return _tpool(_infer)
 
