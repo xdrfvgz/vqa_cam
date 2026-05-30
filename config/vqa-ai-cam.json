@@ -10,13 +10,13 @@
     {
       "question": "Do you see green?",
       "model": "blip",
-      "match": "yes",
-      "cmd": "",
+      "match": "no",
+      "cmd": "play-audio ~/bck/bak/huggingface-scripts/hug-chat/recognition/ai-recognition/sounds/alarm01.mp3",
       "followup": {
         "question": "Do you see plants?",
         "model": "vilt",
-        "match": "yes",
-        "cmd": "play-audio ~/bck/bak/huggingface-scripts/hug-chat/recognition/ai-recognition/sounds/alarm01.mp3",
+        "match": "no",
+        "cmd": "play-audio ~/bck/bak/huggingface-scripts/hug-chat/recognition/ai-recognition/sounds/alarm02.mp3",
         "followup": null
       }
     }

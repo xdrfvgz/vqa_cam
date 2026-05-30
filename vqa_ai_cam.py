@@ -408,6 +408,7 @@ def mode_server(args, cfg):
                     srv_play_sound(srv_cfg["soundfile"])
             if cmd:
                 try:
+                    print(cmd)
                     subprocess.run(cmd, shell=True)
                 except Exception as e:
                     entry["cmd_error"] = str(e)

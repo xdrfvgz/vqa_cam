@@ -57,6 +57,7 @@ def evaluate_chain(item, image_path, cfg, depth=0, chain_so_far=None, timg=False
             if sound and __import__("os").path.exists(str(sound)):
                 subprocess.Popen(["play-audio", sound])
         if cmd:
+            print("\n\033[90mCommand: " + cmd + "\033[0m")
             subprocess.run(cmd, shell=True)
         if followup:
             results.extend(evaluate_chain(
