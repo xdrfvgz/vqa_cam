@@ -57,6 +57,14 @@ RESET = "\033[0m"
 
 # ── CLI Modes ─────────────────────────────────────────────────────────────────
 
+def _override_model(item, model):
+    item = dict(item)
+    item["model"] = model
+    if item.get("followup"):
+        item["followup"] = _override_model(item["followup"], model)
+    return item
+
+
 def mode_ask(args, cfg):
     if not os.path.exists(args.image):
         print("error: image not found: " + args.image, file=sys.stderr)
@@ -90,6 +98,9 @@ def mode_run(args, cfg):
         print(RED + "Error: no questions configured"
               " (use web UI 'Übernehmen' or --question / --config)" + RESET, file=sys.stderr)
         sys.exit(2)
+
+    if args.model:
+        questions = [_override_model(q, args.model) for q in questions]
 
     quiet = getattr(args, "quiet", False)
     vqa_models.init_model(cfg["model"], cfg["model_dir"], quiet=quiet)
@@ -128,6 +139,8 @@ def mode_single(args, cfg):
     vqa_models.init_model(cfg["model"], cfg["model_dir"])
     vqa_camera.show_image(image_path, args.timg)
     questions = vqa_chain.load_questions(args, cfg)
+    if args.model:
+        questions = [_override_model(q, args.model) for q in questions]
     if questions:
         chain_cfg = {"save": args.save, "soundfile": "",
                      "alarm_dir": cfg["alarm_dir"], "capture_limit": cfg["capture_limit"]}
