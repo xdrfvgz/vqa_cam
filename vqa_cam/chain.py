@@ -3,7 +3,7 @@
 # vqa_chain.py – rule chain evaluation
 
 import subprocess
-from vqa_cam.models import run_vqa
+from vqa_cam.models import run_vqa, init_model
 from vqa_cam.storage import save_alarm
 
 RED   = "\033[91m"
@@ -25,6 +25,9 @@ def evaluate_chain(item, image_path, cfg, depth=0, chain_so_far=None, timg=False
 
     if not question:
         return []
+
+    if model:
+        init_model(model, quiet=quiet)
 
     indent = "  " * depth
     if not quiet:
