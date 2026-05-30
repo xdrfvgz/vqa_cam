@@ -198,11 +198,12 @@ def _run_git(processor, model, img, question):
     inputs = processor(images=img, text=question, return_tensors="pt")
     def _infer():
         with torch.no_grad():
-            gen = model.generate(**inputs, max_new_tokens=50)
+            gen = model.generate(**inputs, max_new_tokens=50,
+                                 min_new_tokens=1, num_beams=4)
         full = processor.batch_decode(gen, skip_special_tokens=True)[0].strip()
         if full.lower().startswith(question.lower()):
             full = full[len(question):].strip()
-        return full
+        return full or "?"
     return _tpool(_infer)
 
 
