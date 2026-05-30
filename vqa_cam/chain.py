@@ -3,6 +3,7 @@
 # vqa_chain.py – rule chain evaluation
 
 import subprocess
+import time
 from vqa_cam.models import run_vqa, init_model
 from vqa_cam.storage import save_alarm
 
@@ -26,6 +27,7 @@ def evaluate_chain(item, image_path, cfg, depth=0, chain_so_far=None, timg=False
     if not question:
         return []
 
+    t0 = time.time()
     if model:
         init_model(model, quiet=quiet)
 
@@ -38,10 +40,12 @@ def evaluate_chain(item, image_path, cfg, depth=0, chain_so_far=None, timg=False
     except Exception as e:
         answer = "error: " + str(e)
 
+    elapsed = time.time() - t0
     matched = bool(match_word) and (match_word.lower() in answer.lower())
 
     if not quiet:
-        print((RED if matched else GREEN) + answer + RESET)
+        print((RED if matched else GREEN) + answer + RESET +
+              GRAY + "  [{:.1f}s]".format(elapsed) + RESET)
 
     current_chain = chain_so_far + [{"question": question, "answer": answer, "matched": matched}]
     results = [{"question": question, "answer": answer, "matched": matched,

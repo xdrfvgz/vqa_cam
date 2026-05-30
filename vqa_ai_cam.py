@@ -62,8 +62,10 @@ def mode_ask(args, cfg):
         print("error: image not found: " + args.image, file=sys.stderr)
         sys.exit(2)
     try:
+        t0 = time.time()
         vqa_models.init_model(cfg["model"], cfg["model_dir"], quiet=args.quiet)
         answer = vqa_models.run_vqa(args.image, args.question)
+        elapsed = time.time() - t0
     except Exception as e:
         print("error: " + str(e), file=sys.stderr)
         sys.exit(2)
@@ -71,6 +73,7 @@ def mode_ask(args, cfg):
     if not args.quiet:
         print(answer)
         print("true" if matched else "false")
+        print(GRAY + "[{:.1f}s]".format(elapsed) + RESET)
     if matched and args.cmd:
         subprocess.run(args.cmd, shell=True)
     sys.exit(0 if matched else 1)
