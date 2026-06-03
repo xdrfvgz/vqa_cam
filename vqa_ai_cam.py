@@ -58,19 +58,21 @@ RESET = "\033[0m"
 
 # ── CLI Modes ─────────────────────────────────────────────────────────────────
 
-def _run_detector(detector_type, image_path, quiet=False):
+def _run_detector(detector_type, image_path, count_expr=">0", quiet=False):
     try:
         result = vqa_detector.detect(detector_type, image_path)
+        n = result["count"]
+        passed = vqa_chain.match_answer(count_expr, str(n))
         if not quiet:
             label = "HOG" if detector_type == "hog" else "YOLO"
-            n = result["count"]
             print(GRAY + label + ": " + str(n) + " Person" + ("en" if n != 1 else "") +
-                  " erkannt" + RESET)
+                  " erkannt  [" + count_expr + " → " + ("✓" if passed else "✗") + "]" + RESET)
+        result["passed"] = passed
         return result
     except Exception as e:
         if not quiet:
             print(GRAY + detector_type.upper() + ": " + str(e) + RESET)
-        return {"count": 1, "detections": []}  # fail open
+        return {"count": 1, "detections": [], "passed": True}  # fail open
 
 
 def _override_model(item, model):
@@ -121,8 +123,9 @@ def mode_run(args, cfg):
     quiet = getattr(args, "quiet", False)
     detector = getattr(args, "detector", None) or cfg.get("detector")
     if detector:
-        result = _run_detector(detector, image_path, quiet)
-        if result["count"] == 0:
+        count_expr = getattr(args, "detector_count", None) or cfg.get("detector_count") or ">0"
+        result = _run_detector(detector, image_path, count_expr, quiet)
+        if not result["passed"]:
             sys.exit(1)
 
     chain_cfg = {
@@ -159,8 +162,9 @@ def mode_single(args, cfg):
         sys.exit(2)
     detector = getattr(args, "detector", None) or cfg.get("detector")
     if detector:
-        result = _run_detector(detector, image_path)
-        if result["count"] == 0:
+        count_expr = getattr(args, "detector_count", None) or cfg.get("detector_count") or ">0"
+        result = _run_detector(detector, image_path, count_expr)
+        if not result["passed"]:
             sys.exit(1)
     vqa_camera.show_image(image_path, args.timg)
     questions = vqa_chain.load_questions(args, cfg)
@@ -207,7 +211,8 @@ def mode_loop(args, cfg):
         "default_model": cfg["model"],
     }
 
-    detector = getattr(args, "detector", None) or cfg.get("detector")
+    detector       = getattr(args, "detector", None) or cfg.get("detector")
+    det_count_expr = getattr(args, "detector_count", None) or cfg.get("detector_count") or ">0"
 
     image_path      = cfg["image_path"]
     image_path_next = image_path.replace(".jpg", "_next.jpg")
@@ -252,8 +257,8 @@ def mode_loop(args, cfg):
 
         _skip_chain = False
         if detector:
-            det_result = _run_detector(detector, image_path)
-            if det_result["count"] == 0:
+            det_result = _run_detector(detector, image_path, det_count_expr)
+            if not det_result["passed"]:
                 _skip_chain = True
 
         if not _skip_chain:
@@ -404,7 +409,7 @@ def mode_server(args, cfg):
     loop_lock          = threading.Lock()
     loop_config        = {"interval": 5, "questions": [], "save": True,
                           "save_all": False, "sound": True, "soundfile": "default_alarm_sound.wav",
-                          "detector": None}
+                          "detector": None, "detector_count": ">0"}
     loop_stats         = {"total": 0, "alarms": 0, "saved": 0,
                           "last_capture": None, "started_at": None}
 
@@ -509,9 +514,11 @@ def mode_server(args, cfg):
             if det_type:
                 try:
                     det_result = vqa_detector.detect(det_type, IMAGE_PATH)
-                    socketio.emit("loop_tick", {"phase": "detector",
-                                               "detector": det_type, "count": det_result["count"]})
-                    if det_result["count"] == 0:
+                    det_count_expr = srv_cfg.get("detector_count") or ">0"
+                    det_passed = vqa_chain.match_answer(det_count_expr, str(det_result["count"]))
+                    socketio.emit("loop_tick", {"phase": "detector", "detector": det_type,
+                                               "count": det_result["count"], "passed": det_passed})
+                    if not det_passed:
                         _skip_chain = True
                 except Exception as det_e:
                     socketio.emit("loop_tick", {"phase": "detector_error", "error": str(det_e)})
@@ -629,6 +636,8 @@ def mode_server(args, cfg):
             return jsonify({"error": "No image"}), 404
         try:
             result = vqa_detector.detect(det_type, path)
+            count_expr = data.get("count_expr") or ">0"
+            result["passed"] = vqa_chain.match_answer(count_expr, str(result["count"]))
             return jsonify(result)
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -657,8 +666,9 @@ def mode_server(args, cfg):
                 loop_config["questions"] = data["questions"]
             for k in ("save", "save_all", "sound"):
                 if k in data: loop_config[k] = bool(data[k])
-            if "soundfile" in data: loop_config["soundfile"] = data["soundfile"]
-            if "detector"  in data: loop_config["detector"]  = data["detector"] or None
+            if "soundfile"       in data: loop_config["soundfile"]       = data["soundfile"]
+            if "detector"        in data: loop_config["detector"]        = data["detector"] or None
+            if "detector_count"  in data: loop_config["detector_count"]  = data["detector_count"] or ">0"
             snapshot = dict(loop_config)
         socketio.emit("loop_state", {"running": loop_running, "config": snapshot, "stats": dict(loop_stats)})
         return jsonify({"status": "ok", "config": snapshot})
@@ -742,13 +752,14 @@ def mode_server(args, cfg):
             if loop_running:
                 return jsonify({"error": "Loop already running"}), 409
             loop_config.update({
-                "interval":  interval,
-                "questions": questions,
-                "save":      bool(data.get("save", True)),
-                "save_all":  bool(data.get("save_all", False)),
-                "sound":     bool(data.get("sound", True)),
-                "soundfile": data.get("soundfile", "default_alarm_sound.wav"),
-                "detector":  data.get("detector") or None,
+                "interval":       interval,
+                "questions":      questions,
+                "save":           bool(data.get("save", True)),
+                "save_all":       bool(data.get("save_all", False)),
+                "sound":          bool(data.get("sound", True)),
+                "soundfile":      data.get("soundfile", "default_alarm_sound.wav"),
+                "detector":       data.get("detector") or None,
+                "detector_count": data.get("detector_count") or ">0",
             })
             loop_stats.update({"total": 0, "alarms": 0, "saved": 0,
                                 "last_capture": None, "started_at": datetime.now().isoformat()})
@@ -811,7 +822,9 @@ def main():
 
     def add_detector(p):
         p.add_argument("--detector", default=None, choices=["hog", "yolo"],
-                       help="Person pre-filter before VQA (hog=fast, yolo=precise); exit 1 if no person")
+                       help="Person pre-filter before VQA (hog=fast, yolo=precise)")
+        p.add_argument("--detector-count", default=">0", metavar="EXPR",
+                       help="Count threshold expression, e.g. >0 >=2 ==1 (default: >0)")
 
     # ask
     p_ask = sub.add_parser("ask", help="Single-shot Q&A (exit 0=match, 1=no match)")

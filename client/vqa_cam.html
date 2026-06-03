@@ -911,6 +911,8 @@
         <label><input type="radio" name="mon-detector" value="none" checked> keiner</label>
         <label><input type="radio" name="mon-detector" value="hog"> HOG <span style="color:var(--text-3)">(schnell)</span></label>
         <label><input type="radio" name="mon-detector" value="yolo"> YOLO <span style="color:var(--text-3)">(präzise)</span></label>
+        <input type="text" id="mon-det-count" value=">0" title="Anzahl-Bedingung: >0 >=2 ==1 !=0" style="width:48px;font-family:'DM Mono',monospace;font-size:0.75rem;border:1px solid var(--border);border-radius:5px;padding:2px 5px;background:var(--bg);">
+        <span id="mon-det-result" style="font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--text-3);min-width:60px;"></span>
       </div>
       <div id="questions-list"></div>
       <div style="font-size:0.72rem;color:var(--text-3);padding:2px 16px 8px;font-family:'DM Mono',monospace;">
@@ -1012,6 +1014,8 @@
         <label><input type="radio" name="mq-detector" value="none" checked> keiner</label>
         <label><input type="radio" name="mq-detector" value="hog"> HOG <span style="color:var(--text-3)">(schnell)</span></label>
         <label><input type="radio" name="mq-detector" value="yolo"> YOLO <span style="color:var(--text-3)">(präzise)</span></label>
+        <input type="text" id="mq-det-count" value=">0" title="Anzahl-Bedingung: >0 >=2 ==1 !=0" style="width:48px;font-family:'DM Mono',monospace;font-size:0.75rem;border:1px solid var(--border);border-radius:5px;padding:2px 5px;background:var(--bg);">
+        <span id="mq-det-result" style="font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--text-3);min-width:60px;"></span>
       </div>
       <div class="mq-chain" id="mq-chain"></div>
       <button class="mq-add-top" onclick="mqAddQuestion()">+ Frage hinzufügen</button>
@@ -1332,19 +1336,25 @@
       document.getElementById("followup-row").classList.add("visible");
       statTotal++;
       updateStats();
-      const monDetector = document.querySelector('input[name="mon-detector"]:checked')?.value || "none";
+      const monDetector  = document.querySelector('input[name="mon-detector"]:checked')?.value || "none";
+      const monDetCount  = document.getElementById("mon-det-count")?.value.trim() || ">0";
+      const monDetResult = document.getElementById("mon-det-result");
       if (monDetector !== "none") {
         try {
           const dr = await fetch(server() + "/detect", {
             method: "POST", headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({detector: monDetector})
+            body: JSON.stringify({detector: monDetector, count_expr: monDetCount})
           });
           const dd = await dr.json();
-          if (dd.count === 0) {
-            preChips.forEach(c => resolveChip(c, monDetector.toUpperCase() + ": kein Mensch", "no-match"));
+          const n = dd.count ?? 0;
+          if (monDetResult) monDetResult.textContent = n + " erkannt";
+          if (!dd.passed) {
+            preChips.forEach(c => resolveChip(c, monDetector.toUpperCase() + ": " + n + " erkannt (" + monDetCount + " ✗)", "no-match"));
             btn.disabled = false; btn.textContent = "Foto aufnehmen"; return;
           }
-        } catch {}
+        } catch { if (monDetResult) monDetResult.textContent = ""; }
+      } else {
+        if (monDetResult) monDetResult.textContent = "";
       }
       for (let i = 0; i < questions.length; i++) {
         await evaluateChain(questions[i], 0, preChips[i]);
@@ -1428,15 +1438,17 @@
     await new Promise(r => setTimeout(r, 30));
     const questions = getQuestions();
     if (questions.length === 0) return;
-    const detectorVal = document.querySelector('input[name="mon-detector"]:checked')?.value || "none";
+    const detectorVal   = document.querySelector('input[name="mon-detector"]:checked')?.value || "none";
+    const detectorCount = document.getElementById("mon-det-count")?.value.trim() || ">0";
     const payload = {
-      questions: questions,
-      interval:  parseInt(document.getElementById("cfg-interval").value) || 5,
-      save:      document.getElementById("cfg-save").checked,
-      save_all:  document.getElementById("cfg-save-all").checked,
-      sound:     document.getElementById("cfg-sound").checked,
-      soundfile: document.getElementById("cfg-soundfile").value.trim(),
-      detector:  detectorVal === "none" ? null : detectorVal,
+      questions:       questions,
+      interval:        parseInt(document.getElementById("cfg-interval").value) || 5,
+      save:            document.getElementById("cfg-save").checked,
+      save_all:        document.getElementById("cfg-save-all").checked,
+      sound:           document.getElementById("cfg-sound").checked,
+      soundfile:       document.getElementById("cfg-soundfile").value.trim(),
+      detector:        detectorVal === "none" ? null : detectorVal,
+      detector_count:  detectorVal === "none" ? ">0" : detectorCount,
     };
     try {
       const r = await fetch(server() + "/loop/start", {
@@ -1710,7 +1722,8 @@
     const questions = Array.from(document.querySelectorAll("#mq-chain > .mq-item"))
       .map(mqCollectItem).filter(Boolean);
     if (!questions.length) return;
-    const detector = document.querySelector('input[name="mq-detector"]:checked')?.value || "none";
+    const detector      = document.querySelector('input[name="mq-detector"]:checked')?.value || "none";
+    const detectorCount = document.getElementById("mq-det-count")?.value.trim() || ">0";
     const btn = document.getElementById("mq-apply-btn");
     const orig = btn.textContent;
     btn.disabled = true;
@@ -1719,7 +1732,11 @@
       await fetch(server() + "/loop/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ questions, detector: detector === "none" ? null : detector })
+        body: JSON.stringify({
+          questions,
+          detector:       detector === "none" ? null : detector,
+          detector_count: detector === "none" ? ">0" : detectorCount,
+        })
       });
       await fetch(server() + "/loop/save", { method: "POST" });
       btn.textContent = "✓ Gespeichert";
@@ -1853,10 +1870,12 @@
       }
       answerEl.appendChild(tag); answerEl.appendChild(txt);
 
-      const detectorVal = document.querySelector('input[name="mq-detector"]:checked')?.value || "none";
+      const detectorVal   = document.querySelector('input[name="mq-detector"]:checked')?.value || "none";
+      const mqDetCount    = document.getElementById("mq-det-count")?.value.trim() || ">0";
+      const mqDetResult   = document.getElementById("mq-det-result");
       if (detectorVal !== "none") {
         try {
-          const detBody = { detector: detectorVal };
+          const detBody = { detector: detectorVal, count_expr: mqDetCount };
           if (mqImage.type === "alarm")   detBody.alarm_file   = mqImage.file;
           if (mqImage.type === "capture") detBody.capture_file = mqImage.file;
           const dr = await fetch(server() + "/detect", {
@@ -1865,19 +1884,24 @@
             body: JSON.stringify(detBody)
           });
           const dd = await dr.json();
-          if (dd.count === 0) {
+          const n = dd.count ?? 0;
+          if (mqDetResult) mqDetResult.textContent = n + " erkannt";
+          if (!dd.passed) {
             if (_loadTimer) clearInterval(_loadTimer);
             answerEl.className     = "mq-answer";
             answerEl.style.display = "flex";
             answerEl.innerHTML     = "";
             const dtag = document.createElement("span"); dtag.className = "mq-answer-model"; dtag.textContent = detectorVal.toUpperCase();
-            const dtxt = document.createElement("span"); dtxt.className = "mq-answer-text"; dtxt.textContent = "Kein Mensch erkannt – übersprungen";
+            const dtxt = document.createElement("span"); dtxt.className = "mq-answer-text";
+            dtxt.textContent = n + " erkannt (" + mqDetCount + " ✗) – übersprungen";
             answerEl.appendChild(dtag); answerEl.appendChild(dtxt);
             askBtn.disabled  = false;
             askBtn.innerHTML = "→";
             return;
           }
-        } catch {}
+        } catch { if (mqDetResult) mqDetResult.textContent = ""; }
+      } else {
+        if (mqDetResult) mqDetResult.textContent = "";
       }
 
       const body = { question, model };
