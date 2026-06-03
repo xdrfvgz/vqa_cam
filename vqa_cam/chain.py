@@ -4,6 +4,7 @@
 
 import subprocess
 import time
+import gc
 from vqa_cam.models import run_vqa, init_model
 from vqa_cam.storage import save_alarm
 
@@ -59,10 +60,12 @@ def evaluate_chain(item, image_path, cfg, depth=0, chain_so_far=None, timg=False
                     print(indent + GRAY + "saved: " + saved + RESET)
             sound = cfg.get("soundfile", "")
             if sound and __import__("os").path.exists(str(sound)):
-                subprocess.Popen(["play-audio", sound])
+                gc.collect()
+                subprocess.Popen(["play-audio", sound], start_new_session=True)
         if cmd:
             print("\n\033[90mCommand: " + cmd + "\033[0m")
-            subprocess.run(cmd, shell=True)
+            gc.collect()
+            subprocess.run(cmd, shell=True, start_new_session=True)
         if followup:
             results.extend(evaluate_chain(
                 followup, image_path, cfg, depth + 1, current_chain, timg, quiet
