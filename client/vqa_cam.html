@@ -882,6 +882,10 @@
       </div>
       <div class="controls">
         <button class="btn" id="snap-btn" onclick="captureAndAsk()">Foto aufnehmen</button>
+        <label class="btn" style="cursor:pointer;display:flex;align-items:center;justify-content:center;">
+          Durchsuchen
+          <input type="file" accept="image/*" style="display:none" onchange="monUploadFile(this)">
+        </label>
         <button class="btn start" id="loop-btn" onclick="toggleLoop()">Loop starten</button>
       </div>
       <div id="answers-bar"></div>
@@ -985,6 +989,10 @@
     </p>
     <div class="models-controls">
       <button class="btn" style="flex:none;padding:9px 14px;border:1px solid var(--border);border-radius:8px;" onclick="modelsTakePhoto()">Foto aufnehmen</button>
+      <label class="btn" style="flex:none;padding:9px 14px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:0.85rem;background:var(--surface);">
+        Durchsuchen
+        <input type="file" accept="image/*" style="display:none" onchange="mqUploadFile(this)">
+      </label>
       <select id="models-source-select" class="models-source-select" onchange="mqSelectImage(this)">
         <option value="">Bild aus Galerie wählen...</option>
         <optgroup label="Alarme" id="mq-alarm-opts"></optgroup>
@@ -1598,6 +1606,52 @@
       }
     }
     btn.disabled = false; btn.innerHTML = "→";
+  }
+
+  async function _uploadToServer(file) {
+    const form = new FormData();
+    form.append("file", file);
+    const r = await fetch(server() + "/upload", { method: "POST", body: form });
+    if (!r.ok) throw new Error("Upload fehlgeschlagen");
+  }
+
+  async function monUploadFile(input) {
+    if (!input.files.length) return;
+    const file = input.files[0];
+    const btn = document.getElementById("snap-btn");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Lädt hoch...';
+    document.getElementById("answers-bar").innerHTML = "";
+    try {
+      await _uploadToServer(file);
+      showLatestImage();
+      document.getElementById("followup-row").classList.add("visible");
+    } catch (e) {
+      alert("Upload fehlgeschlagen: " + e.message);
+    }
+    btn.disabled = false;
+    btn.textContent = "Foto aufnehmen";
+    input.value = "";
+  }
+
+  async function mqUploadFile(input) {
+    if (!input.files.length) return;
+    const file = input.files[0];
+    const area = document.getElementById("models-image-area");
+    area.innerHTML = '<span class="models-image-placeholder">Lädt hoch...</span>';
+    try {
+      await _uploadToServer(file);
+      mqSetImage("current", null);
+      const img = document.createElement("img");
+      img.src = server() + "/image?t=" + Date.now();
+      area.innerHTML = "";
+      area.appendChild(img);
+      document.getElementById("models-source-select").value = "";
+      document.getElementById("mq-no-image-hint").style.display = "none";
+    } catch (e) {
+      area.innerHTML = '<span class="models-image-placeholder">Upload fehlgeschlagen</span>';
+    }
+    input.value = "";
   }
 
   async function modelsTakePhoto() {
