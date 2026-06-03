@@ -903,6 +903,9 @@
         </span>
       </div>
       <div id="questions-list"></div>
+      <div style="font-size:0.72rem;color:var(--text-3);padding:2px 16px 8px;font-family:'DM Mono',monospace;">
+        match: <b>wort</b> · <b>!wort</b> · <b>&gt;N</b> &lt;N &gt;=N &lt;=N !=N
+      </div>
     </div>
   </div>
 </div>
@@ -1054,7 +1057,8 @@
     row.className = "question-row";
     row.innerHTML =
       '<input type="text" placeholder="What do you see?" value="' + q + '">' +
-      '<input type="text" class="match-word" placeholder="match" value="' + m + '">' +
+      '<input type="text" class="match-word" placeholder="yes / !no / &gt;3" value="' + m + '"' +
+      ' title="Treffer wenn: Wort (enthält), !Wort (enthält nicht), &gt;N &lt;N &gt;=N &lt;=N !=N (Zahl in Antwort)">' +
       '<input type="text" class="cmd-input" placeholder="cmd bei Match" value="' + cmd + '">' +
       '<button class="del-btn" onclick="this.closest(\'.question-chain-item\').remove()">×</button>';
     item.appendChild(row);
@@ -1396,6 +1400,7 @@
     await new Promise(r => setTimeout(r, 30));
     const questions = getQuestions();
     if (questions.length === 0) return;
+    const detectorVal = document.querySelector('input[name="mq-detector"]:checked')?.value || "none";
     const payload = {
       questions: questions,
       interval:  parseInt(document.getElementById("cfg-interval").value) || 5,
@@ -1403,6 +1408,7 @@
       save_all:  document.getElementById("cfg-save-all").checked,
       sound:     document.getElementById("cfg-sound").checked,
       soundfile: document.getElementById("cfg-soundfile").value.trim(),
+      detector:  detectorVal === "none" ? null : detectorVal,
     };
     try {
       const r = await fetch(server() + "/loop/start", {
