@@ -125,13 +125,12 @@ def mode_run(args, cfg):
         if result["count"] == 0:
             sys.exit(1)
 
-    vqa_models.init_model(cfg["model"], cfg["model_dir"], quiet=quiet)
-
     chain_cfg = {
         "save":          args.save,
         "soundfile":     "",
         "alarm_dir":     cfg["alarm_dir"],
         "capture_limit": cfg["capture_limit"],
+        "default_model": cfg["model"],
     }
 
     any_match = False
@@ -163,16 +162,16 @@ def mode_single(args, cfg):
         result = _run_detector(detector, image_path)
         if result["count"] == 0:
             sys.exit(1)
-    vqa_models.init_model(cfg["model"], cfg["model_dir"])
     vqa_camera.show_image(image_path, args.timg)
     questions = vqa_chain.load_questions(args, cfg)
     if args.model:
         questions = [_override_model(q, args.model) for q in questions]
     if questions:
-        chain_cfg = {"save": args.save, "soundfile": "",
-                     "alarm_dir": cfg["alarm_dir"], "capture_limit": cfg["capture_limit"]}
+        chain_cfg = {"save": args.save, "soundfile": "", "alarm_dir": cfg["alarm_dir"],
+                     "capture_limit": cfg["capture_limit"], "default_model": cfg["model"]}
         for item in questions:
             vqa_chain.evaluate_chain(item, image_path, chain_cfg, timg=args.timg)
+    vqa_models.init_model(cfg["model"], cfg["model_dir"])  # ensure model ready for interactive input
     print("\n" + GRAY + "Ask followup questions (empty to quit):" + RESET)
     while True:
         try:
@@ -198,8 +197,6 @@ def mode_loop(args, cfg):
         print(RED + "Error: provide --config or --question" + RESET)
         sys.exit(2)
 
-    vqa_models.init_model(cfg["model"], cfg["model_dir"])
-
     chain_cfg = {
         "save":          args.save,
         "soundfile":     args.sound or "",
@@ -207,6 +204,7 @@ def mode_loop(args, cfg):
         "alarm_dir":     cfg["alarm_dir"],
         "capture_dir":   cfg["capture_dir"],
         "capture_limit": cfg["capture_limit"],
+        "default_model": cfg["model"],
     }
 
     detector = getattr(args, "detector", None) or cfg.get("detector")

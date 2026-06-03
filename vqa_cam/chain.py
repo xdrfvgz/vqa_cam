@@ -20,7 +20,7 @@ def evaluate_chain(item, image_path, cfg, depth=0, chain_so_far=None, timg=False
     question   = item.get("question", "").strip()
     match_word = item.get("match", "").strip()
     cmd        = item.get("cmd", "").strip()
-    model      = item.get("model") or None
+    model      = item.get("model") or cfg.get("default_model") or None
     followup   = item.get("followup")
     is_leaf    = followup is None
 
