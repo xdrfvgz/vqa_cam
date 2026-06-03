@@ -1314,56 +1314,56 @@
     }
   }
 
+  async function runMonitorAnalysis() {
+    const questions = getQuestions();
+    if (!questions.length) return;
+    document.getElementById("answers-bar").innerHTML = "";
+    const preChips = questions.map(item => addPendingChip(item.question || ""));
+    await new Promise(r => requestAnimationFrame(r));
+    document.getElementById("followup-row").classList.add("visible");
+    statTotal++;
+    updateStats();
+    const monDetector  = document.querySelector('input[name="mon-detector"]:checked')?.value || "none";
+    const monDetCount  = document.getElementById("mon-det-count")?.value.trim() || ">0";
+    const monDetResult = document.getElementById("mon-det-result");
+    if (monDetector !== "none") {
+      try {
+        const dr = await fetch(server() + "/detect", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({detector: monDetector, count_expr: monDetCount})
+        });
+        const dd = await dr.json();
+        const n = dd.count ?? 0;
+        if (monDetResult) monDetResult.textContent = n + " erkannt";
+        if (!dd.passed) {
+          preChips.forEach(c => resolveChip(c, monDetector.toUpperCase() + ": " + n + " erkannt (" + monDetCount + " ✗)", "no-match"));
+          return;
+        }
+      } catch { if (monDetResult) monDetResult.textContent = ""; }
+    } else {
+      if (monDetResult) monDetResult.textContent = "";
+    }
+    for (let i = 0; i < questions.length; i++) {
+      await evaluateChain(questions[i], 0, preChips[i]);
+    }
+    const now = new Date();
+    document.getElementById("stat-last").textContent =
+      String(now.getHours()).padStart(2, "0") + ":" +
+      String(now.getMinutes()).padStart(2, "0") + ":" +
+      String(now.getSeconds()).padStart(2, "0");
+  }
+
   async function captureAndAsk() {
     if (loopRunning) return;
     const btn = document.getElementById("snap-btn");
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>Foto wird aufgenommen...';
     await new Promise(r => setTimeout(r, 30));
-    const questions = getQuestions();
-    if (questions.length === 0) {
-      btn.disabled = false;
-      btn.textContent = "Foto aufnehmen";
-      return;
-    }
-    // Chips sofort anzeigen — noch vor dem Foto
-    document.getElementById("answers-bar").innerHTML = "";
-    const preChips = questions.map(item => addPendingChip(item.question || ""));
-    await new Promise(r => setTimeout(r, 80)); // sicherstellen dass Chips gerendert sind
+    if (!getQuestions().length) { btn.disabled = false; btn.textContent = "Foto aufnehmen"; return; }
     try {
       await capturePhoto();
       btn.innerHTML = '<span class="spinner"></span>Analyse läuft...';
-      document.getElementById("followup-row").classList.add("visible");
-      statTotal++;
-      updateStats();
-      const monDetector  = document.querySelector('input[name="mon-detector"]:checked')?.value || "none";
-      const monDetCount  = document.getElementById("mon-det-count")?.value.trim() || ">0";
-      const monDetResult = document.getElementById("mon-det-result");
-      if (monDetector !== "none") {
-        try {
-          const dr = await fetch(server() + "/detect", {
-            method: "POST", headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({detector: monDetector, count_expr: monDetCount})
-          });
-          const dd = await dr.json();
-          const n = dd.count ?? 0;
-          if (monDetResult) monDetResult.textContent = n + " erkannt";
-          if (!dd.passed) {
-            preChips.forEach(c => resolveChip(c, monDetector.toUpperCase() + ": " + n + " erkannt (" + monDetCount + " ✗)", "no-match"));
-            btn.disabled = false; btn.textContent = "Foto aufnehmen"; return;
-          }
-        } catch { if (monDetResult) monDetResult.textContent = ""; }
-      } else {
-        if (monDetResult) monDetResult.textContent = "";
-      }
-      for (let i = 0; i < questions.length; i++) {
-        await evaluateChain(questions[i], 0, preChips[i]);
-      }
-      const now = new Date();
-      document.getElementById("stat-last").textContent =
-        String(now.getHours()).padStart(2, "0") + ":" +
-        String(now.getMinutes()).padStart(2, "0") + ":" +
-        String(now.getSeconds()).padStart(2, "0");
+      await runMonitorAnalysis();
     } catch (e) {
       const chip = addPendingChip("Fehler");
       resolveChip(chip, e.message, "match");
@@ -1637,7 +1637,8 @@
     try {
       await _uploadToServer(file);
       showLatestImage();
-      document.getElementById("followup-row").classList.add("visible");
+      btn.innerHTML = '<span class="spinner"></span>Analyse läuft...';
+      await runMonitorAnalysis();
     } catch (e) {
       alert("Upload fehlgeschlagen: " + e.message);
     }
@@ -1660,6 +1661,9 @@
       area.appendChild(img);
       document.getElementById("models-source-select").value = "";
       document.getElementById("mq-no-image-hint").style.display = "none";
+      // auto-run all top-level questions
+      const items = Array.from(document.querySelectorAll("#mq-chain > .mq-item"));
+      for (const it of items) { if (it._doAsk) await it._doAsk(); }
     } catch (e) {
       area.innerHTML = '<span class="models-image-placeholder">Upload fehlgeschlagen</span>';
     }
