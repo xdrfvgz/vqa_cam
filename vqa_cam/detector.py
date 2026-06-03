@@ -31,16 +31,26 @@ def _hog(image_path):
 
 
 def _yolo(image_path):
-    import cv2
-    from ultralytics import YOLO
-    model = YOLO("yolov8n.pt")
-    img = cv2.imread(image_path)
-    if img is None:
-        raise ValueError("Image not found: " + image_path)
-    results = model(img, verbose=False)
-    persons = [
-        float(box.conf[0])
-        for box in results[0].boxes
-        if int(box.cls[0]) == 0 and float(box.conf[0]) > 0.5
-    ]
-    return {"count": len(persons), "detections": [{"confidence": k} for k in persons]}
+    import sys
+    import json
+    import subprocess
+    # Run YOLO in an isolated child process so its PyTorch/OpenSL ES resources
+    # are fully released before the caller runs play-audio or other audio commands.
+    _SCRIPT = (
+        "import sys,json,cv2;"
+        "from ultralytics import YOLO;"
+        "path=sys.argv[1];"
+        "model=YOLO('yolov8n.pt');"
+        "img=cv2.imread(path);"
+        "sys.exit(1) if img is None else None;"
+        "r=model(img,verbose=False);"
+        "p=[float(b.conf[0]) for b in r[0].boxes if int(b.cls[0])==0 and float(b.conf[0])>0.5];"
+        "print(json.dumps({'count':len(p),'detections':[{'confidence':k} for k in p]}))"
+    )
+    proc = subprocess.run(
+        [sys.executable, "-c", _SCRIPT, image_path],
+        capture_output=True, text=True
+    )
+    if proc.returncode != 0 or not proc.stdout.strip():
+        raise RuntimeError((proc.stderr.strip() or "YOLO subprocess failed"))
+    return json.loads(proc.stdout.strip())
