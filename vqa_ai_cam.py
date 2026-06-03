@@ -44,6 +44,7 @@ from vqa_cam import models as vqa_models
 from vqa_cam import camera as vqa_camera
 from vqa_cam import storage as vqa_storage
 from vqa_cam import chain as vqa_chain
+from vqa_cam import detector as vqa_detector
 
 # ── ANSI ─────────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,21 @@ RESET = "\033[0m"
 
 
 # ── CLI Modes ─────────────────────────────────────────────────────────────────
+
+def _run_detector(detector_type, image_path, quiet=False):
+    try:
+        result = vqa_detector.detect(detector_type, image_path)
+        if not quiet:
+            label = "HOG" if detector_type == "hog" else "YOLO"
+            n = result["count"]
+            print(GRAY + label + ": " + str(n) + " Person" + ("en" if n != 1 else "") +
+                  " erkannt" + RESET)
+        return result
+    except Exception as e:
+        if not quiet:
+            print(GRAY + detector_type.upper() + ": " + str(e) + RESET)
+        return {"count": 1, "detections": []}  # fail open
+
 
 def _override_model(item, model):
     item = dict(item)
@@ -103,6 +119,12 @@ def mode_run(args, cfg):
         questions = [_override_model(q, args.model) for q in questions]
 
     quiet = getattr(args, "quiet", False)
+    detector = getattr(args, "detector", None) or cfg.get("detector")
+    if detector:
+        result = _run_detector(detector, image_path, quiet)
+        if result["count"] == 0:
+            sys.exit(1)
+
     vqa_models.init_model(cfg["model"], cfg["model_dir"], quiet=quiet)
 
     chain_cfg = {
@@ -136,6 +158,11 @@ def mode_single(args, cfg):
     if not os.path.exists(image_path):
         print(RED + "Error: image not found: " + image_path + RESET)
         sys.exit(2)
+    detector = getattr(args, "detector", None) or cfg.get("detector")
+    if detector:
+        result = _run_detector(detector, image_path)
+        if result["count"] == 0:
+            sys.exit(1)
     vqa_models.init_model(cfg["model"], cfg["model_dir"])
     vqa_camera.show_image(image_path, args.timg)
     questions = vqa_chain.load_questions(args, cfg)
@@ -182,6 +209,8 @@ def mode_loop(args, cfg):
         "capture_limit": cfg["capture_limit"],
     }
 
+    detector = getattr(args, "detector", None) or cfg.get("detector")
+
     image_path      = cfg["image_path"]
     image_path_next = image_path.replace(".jpg", "_next.jpg")
     running = True
@@ -223,10 +252,17 @@ def mode_loop(args, cfg):
         next_thread = threading.Thread(target=_take_next, daemon=True)
         next_thread.start()
 
-        for item in questions:
-            results = vqa_chain.evaluate_chain(item, image_path, chain_cfg, timg=args.timg)
-            if any(r.get("matched") and r.get("is_leaf") for r in results):
-                alarms += 1
+        _skip_chain = False
+        if detector:
+            det_result = _run_detector(detector, image_path)
+            if det_result["count"] == 0:
+                _skip_chain = True
+
+        if not _skip_chain:
+            for item in questions:
+                results = vqa_chain.evaluate_chain(item, image_path, chain_cfg, timg=args.timg)
+                if any(r.get("matched") and r.get("is_leaf") for r in results):
+                    alarms += 1
 
         next_thread.join()
         if next_result[0] and os.path.exists(image_path_next):
@@ -369,7 +405,8 @@ def mode_server(args, cfg):
     loop_running       = False
     loop_lock          = threading.Lock()
     loop_config        = {"interval": 5, "questions": [], "save": True,
-                          "save_all": False, "sound": True, "soundfile": "default_alarm_sound.wav"}
+                          "save_all": False, "sound": True, "soundfile": "default_alarm_sound.wav",
+                          "detector": None}
     loop_stats         = {"total": 0, "alarms": 0, "saved": 0,
                           "last_capture": None, "started_at": None}
 
@@ -468,13 +505,27 @@ def mode_server(args, cfg):
                 next_result[0] = srv_take_photo(IMAGE_PATH_NEXT)
             next_thread = threading.Thread(target=_take_next, daemon=True)
             next_thread.start()
+
+            _skip_chain = False
+            det_type = srv_cfg.get("detector")
+            if det_type:
+                try:
+                    det_result = vqa_detector.detect(det_type, IMAGE_PATH)
+                    socketio.emit("loop_tick", {"phase": "detector",
+                                               "detector": det_type, "count": det_result["count"]})
+                    if det_result["count"] == 0:
+                        _skip_chain = True
+                except Exception as det_e:
+                    socketio.emit("loop_tick", {"phase": "detector_error", "error": str(det_e)})
+
             results   = []
             any_match = False
-            for item in srv_cfg["questions"]:
-                chain_results = srv_evaluate_chain(item, srv_cfg, IMAGE_PATH)
-                results.extend(chain_results)
-                if any(r.get("matched") and r.get("is_leaf") for r in chain_results):
-                    any_match = True
+            if not _skip_chain:
+                for item in srv_cfg["questions"]:
+                    chain_results = srv_evaluate_chain(item, srv_cfg, IMAGE_PATH)
+                    results.extend(chain_results)
+                    if any(r.get("matched") and r.get("is_leaf") for r in chain_results):
+                        any_match = True
             next_thread.join()
             if next_result[0] and os.path.exists(IMAGE_PATH_NEXT):
                 time.sleep(0.3)
@@ -553,6 +604,26 @@ def mode_server(args, cfg):
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
+    @app.route("/detect", methods=["POST"])
+    def detect_persons():
+        data = request.get_json() or {}
+        det_type = data.get("detector", "hog")
+        if det_type not in ("hog", "yolo"):
+            return jsonify({"error": "detector must be hog or yolo"}), 400
+        if "alarm_file" in data:
+            path = os.path.join(ALARM_DIR, os.path.basename(data["alarm_file"]))
+        elif "capture_file" in data:
+            path = os.path.join(CAPTURE_DIR, os.path.basename(data["capture_file"]))
+        else:
+            path = IMAGE_PATH
+        if not os.path.exists(path):
+            return jsonify({"error": "No image"}), 404
+        try:
+            result = vqa_detector.detect(det_type, path)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
     @app.route("/models")
     def list_models():
         return jsonify({
@@ -578,6 +649,7 @@ def mode_server(args, cfg):
             for k in ("save", "save_all", "sound"):
                 if k in data: loop_config[k] = bool(data[k])
             if "soundfile" in data: loop_config["soundfile"] = data["soundfile"]
+            if "detector"  in data: loop_config["detector"]  = data["detector"] or None
             snapshot = dict(loop_config)
         socketio.emit("loop_state", {"running": loop_running, "config": snapshot, "stats": dict(loop_stats)})
         return jsonify({"status": "ok", "config": snapshot})
@@ -667,6 +739,7 @@ def mode_server(args, cfg):
                 "save_all":  bool(data.get("save_all", False)),
                 "sound":     bool(data.get("sound", True)),
                 "soundfile": data.get("soundfile", "default_alarm_sound.wav"),
+                "detector":  data.get("detector") or None,
             })
             loop_stats.update({"total": 0, "alarms": 0, "saved": 0,
                                 "last_capture": None, "started_at": datetime.now().isoformat()})
@@ -727,6 +800,10 @@ def main():
         p.add_argument("--cmd",      default="",   help="Shell command on match")
         p.add_argument("--config",   default=None, help="JSON question chain config")
 
+    def add_detector(p):
+        p.add_argument("--detector", default=None, choices=["hog", "yolo"],
+                       help="Person pre-filter before VQA (hog=fast, yolo=precise); exit 1 if no person")
+
     # ask
     p_ask = sub.add_parser("ask", help="Single-shot Q&A (exit 0=match, 1=no match)")
     p_ask.add_argument("question", help="Question")
@@ -739,6 +816,7 @@ def main():
     # run
     p_run = sub.add_parser("run", help="One-shot: run saved questions against image (Motion/MotionEye)")
     add_model(p_run)
+    add_detector(p_run)
     p_run.add_argument("--config", default=None, help="JSON question chain config (default: from vqa-ai-cam.json)")
     p_run.add_argument("--image",  required=True, help="Image file to analyze")
     p_run.add_argument("--save",   action="store_true", help="Save alarm image on match")
@@ -750,6 +828,7 @@ def main():
     add_camera(p_single)
     add_timg(p_single)
     add_questions(p_single)
+    add_detector(p_single)
     p_single.add_argument("--image", default=None, help="Image file (default: take photo)")
     p_single.add_argument("--save",  action="store_true", help="Save alarm images")
 
@@ -759,6 +838,7 @@ def main():
     add_camera(p_loop)
     add_timg(p_loop)
     add_questions(p_loop)
+    add_detector(p_loop)
     p_loop.add_argument("--interval", type=float, default=10, help="Cycle time in seconds")
     p_loop.add_argument("--save",     action="store_true", help="Save alarm images")
     p_loop.add_argument("--save-all", action="store_true", help="Save all captures")

@@ -592,6 +592,21 @@
     margin-top: 4px;
   }
   .mq-add-top:hover { border-color: var(--accent); color: var(--text); }
+  .mq-detector-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.78rem;
+    color: var(--text-2);
+    flex-wrap: wrap;
+  }
+  .mq-detector-row label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  .mq-detector-row input[type=radio] { accent-color: var(--accent); }
   .mq-mode-toggle {
     display: flex;
     gap: 2px;
@@ -975,6 +990,12 @@
 
     <!-- KETTE -->
     <div id="mq-panel-chain">
+      <div class="mq-detector-row">
+        <span>Vor-Filter:</span>
+        <label><input type="radio" name="mq-detector" value="none" checked> keiner</label>
+        <label><input type="radio" name="mq-detector" value="hog"> HOG <span style="color:var(--text-3)">(schnell)</span></label>
+        <label><input type="radio" name="mq-detector" value="yolo"> YOLO <span style="color:var(--text-3)">(präzise)</span></label>
+      </div>
       <div class="mq-chain" id="mq-chain"></div>
       <button class="mq-add-top" onclick="mqAddQuestion()">+ Frage hinzufügen</button>
       <button class="mq-add-top" id="mq-apply-btn" onclick="mqApplyToConfig()" style="border-style:solid;border-color:var(--accent);color:var(--accent);margin-top:4px;">↑ Als Loop-Konfiguration übernehmen</button>
@@ -1609,6 +1630,7 @@
     const questions = Array.from(document.querySelectorAll("#mq-chain > .mq-item"))
       .map(mqCollectItem).filter(Boolean);
     if (!questions.length) return;
+    const detector = document.querySelector('input[name="mq-detector"]:checked')?.value || "none";
     const btn = document.getElementById("mq-apply-btn");
     const orig = btn.textContent;
     btn.disabled = true;
@@ -1617,7 +1639,7 @@
       await fetch(server() + "/loop/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ questions })
+        body: JSON.stringify({ questions, detector: detector === "none" ? null : detector })
       });
       await fetch(server() + "/loop/save", { method: "POST" });
       btn.textContent = "✓ Gespeichert";
@@ -1728,6 +1750,33 @@
         txt.innerHTML = '<span class="spinner"></span>···';
       }
       answerEl.appendChild(tag); answerEl.appendChild(txt);
+
+      const detectorVal = document.querySelector('input[name="mq-detector"]:checked')?.value || "none";
+      if (detectorVal !== "none") {
+        try {
+          const detBody = { detector: detectorVal };
+          if (mqImage.type === "alarm")   detBody.alarm_file   = mqImage.file;
+          if (mqImage.type === "capture") detBody.capture_file = mqImage.file;
+          const dr = await fetch(server() + "/detect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(detBody)
+          });
+          const dd = await dr.json();
+          if (dd.count === 0) {
+            if (_loadTimer) clearInterval(_loadTimer);
+            answerEl.className     = "mq-answer";
+            answerEl.style.display = "flex";
+            answerEl.innerHTML     = "";
+            const dtag = document.createElement("span"); dtag.className = "mq-answer-model"; dtag.textContent = detectorVal.toUpperCase();
+            const dtxt = document.createElement("span"); dtxt.className = "mq-answer-text"; dtxt.textContent = "Kein Mensch erkannt – übersprungen";
+            answerEl.appendChild(dtag); answerEl.appendChild(dtxt);
+            askBtn.disabled  = false;
+            askBtn.innerHTML = "→";
+            return;
+          }
+        } catch {}
+      }
 
       const body = { question, model };
       if (mqImage.type === "alarm")   body.alarm_file   = mqImage.file;
