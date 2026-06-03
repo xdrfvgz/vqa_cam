@@ -1649,6 +1649,28 @@
     setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
   }
 
+  function mqMatchAnswer(expr, answer) {
+    if (!expr) return false;
+    expr = expr.trim();
+    const numOp = expr.match(/^(>=|<=|!=|>|<)\s*(\d+(?:\.\d+)?)$/);
+    if (numOp) {
+      const op = numOp[1], num = parseFloat(numOp[2]);
+      const m = answer.match(/\d+(?:\.\d+)?/);
+      if (!m) return op === '!=';
+      const val = parseFloat(m[0]);
+      if (op === '>')  return val > num;
+      if (op === '<')  return val < num;
+      if (op === '>=') return val >= num;
+      if (op === '<=') return val <= num;
+      if (op === '!=') return val !== num;
+    }
+    if (expr.startsWith('!')) {
+      const word = expr.slice(1).trim();
+      return !!word && !answer.toLowerCase().includes(word.toLowerCase());
+    }
+    return answer.toLowerCase().includes(expr.toLowerCase());
+  }
+
   function mqAddQuestion(parentChain, depth) {
     const chain = parentChain || document.getElementById("mq-chain");
     const d = depth || 0;
@@ -1670,7 +1692,7 @@
     matchInput.type      = "text";
     matchInput.className = "mq-match";
     matchInput.placeholder = "match";
-    matchInput.title = "Antwort muss dieses Wort enthalten";
+    matchInput.title = "Treffer wenn: Wort (enthält), !Wort (enthält nicht), >N <N >=N <=N !=N (Zahl in Antwort)";
 
     const cmdInput       = document.createElement("input");
     cmdInput.type        = "text";
@@ -1793,7 +1815,7 @@
         const answer = data.answer || (resp.status === 409
           ? "Modell '" + model + "' nicht geladen"
           : (data.error || "?"));
-        const matched = matchWord && answer.toLowerCase().includes(matchWord);
+        const matched = matchWord && mqMatchAnswer(matchWord, answer);
         const hasErr  = !data.answer;
 
         answerEl.className    = "mq-answer" + (matched ? " matched" : hasErr ? " errored" : "");

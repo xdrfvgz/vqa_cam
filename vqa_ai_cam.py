@@ -447,7 +447,7 @@ def mode_server(args, cfg):
             answer = vqa_models.run_vqa(image_path, question)
         except Exception as e:
             answer = "Fehler: " + str(e)
-        matched = bool(match_word) and (match_word in answer)
+        matched = vqa_chain.match_answer(match_word, answer)
         entry   = {"question": question, "answer": answer, "matched": matched,
                    "depth": depth, "is_leaf": is_leaf}
         current_chain = chain_so_far + [{"question": question, "answer": answer, "matched": matched}]

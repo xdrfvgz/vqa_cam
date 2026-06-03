@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 # vqa_chain.py – rule chain evaluation
 
+import re
 import subprocess
 import time
 from vqa_cam.models import run_vqa, init_model
@@ -11,6 +12,31 @@ RED   = "\033[91m"
 GREEN = "\033[92m"
 GRAY  = "\033[90m"
 RESET = "\033[0m"
+
+
+def match_answer(expr, answer):
+    """Evaluate match expression against an answer string.
+
+    Operators: >N  <N  >=N  <=N  !=N  (numeric, uses first number in answer)
+               !word                   (string negation)
+               word                    (substring, default)
+    """
+    if not expr:
+        return False
+    expr = expr.strip()
+    m = re.match(r'^(>=|<=|!=|>|<)\s*(\d+(?:\.\d+)?)$', expr)
+    if m:
+        op, num = m.group(1), float(m.group(2))
+        nums = re.findall(r'\d+(?:\.\d+)?', answer)
+        if not nums:
+            return op == '!='
+        val = float(nums[0])
+        return {'>': val > num, '<': val < num, '>=': val >= num,
+                '<=': val <= num, '!=': val != num}[op]
+    if expr.startswith('!'):
+        word = expr[1:].strip()
+        return bool(word) and word.lower() not in answer.lower()
+    return expr.lower() in answer.lower()
 
 
 def evaluate_chain(item, image_path, cfg, depth=0, chain_so_far=None, timg=False, quiet=False):
@@ -41,7 +67,7 @@ def evaluate_chain(item, image_path, cfg, depth=0, chain_so_far=None, timg=False
         answer = "error: " + str(e)
 
     elapsed = time.time() - t0
-    matched = bool(match_word) and (match_word.lower() in answer.lower())
+    matched = match_answer(match_word, answer)
 
     if not quiet:
         print((RED if matched else GREEN) + answer + RESET +
