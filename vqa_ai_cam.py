@@ -565,6 +565,7 @@ def mode_server(args, cfg):
     def photo():
         if not srv_take_photo(IMAGE_PATH):
             return jsonify({"error": "Camera not available"}), 500
+        return jsonify({"status": "ok"})
 
     @app.route("/upload", methods=["POST"])
     def upload():
@@ -575,7 +576,6 @@ def mode_server(args, cfg):
             return jsonify({"error": "Empty filename"}), 400
         os.makedirs(os.path.dirname(IMAGE_PATH), exist_ok=True)
         f.save(IMAGE_PATH)
-        return jsonify({"status": "ok"})
         return jsonify({"status": "ok"})
 
     @app.route("/image")
