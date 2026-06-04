@@ -36,21 +36,39 @@ def _yolo(image_path):
     import subprocess
     # Run YOLO in an isolated child process so its PyTorch/OpenSL ES resources
     # are fully released before the caller runs play-audio or other audio commands.
-    _SCRIPT = (
-        "import sys,json,cv2;"
-        "from ultralytics import YOLO;"
-        "path=sys.argv[1];"
-        "model=YOLO('yolov8n.pt');"
-        "img=cv2.imread(path);"
-        "sys.exit(1) if img is None else None;"
-        "r=model(img,verbose=False);"
-        "p=[float(b.conf[0]) for b in r[0].boxes if int(b.cls[0])==0 and float(b.conf[0])>0.5];"
-        "print(json.dumps({'count':len(p),'detections':[{'confidence':k} for k in p]}))"
-    )
+    # stdout carries only our JSON line; all other output goes to stderr.
+    _SCRIPT = "\n".join([
+        "import sys, json, os, warnings",
+        "warnings.filterwarnings('ignore')",
+        "os.environ['YOLO_VERBOSE'] = '0'",
+        "os.environ['ULTRALYTICS_LOGGING'] = '0'",
+        "import contextlib, io",
+        "import cv2",
+        "_real_stdout = sys.stdout",
+        "sys.stdout = io.StringIO()",   # silence any loader prints
+        "from ultralytics import YOLO",
+        "model = YOLO('yolov8n.pt')",
+        "sys.stdout = _real_stdout",
+        "path = sys.argv[1]",
+        "img = cv2.imread(path)",
+        "if img is None:",
+        "    print(json.dumps({'error': 'Image not found: ' + path}))",
+        "    sys.exit(1)",
+        "r = model(img, verbose=False)",
+        "p = [float(b.conf[0]) for b in r[0].boxes",
+        "     if int(b.cls[0]) == 0 and float(b.conf[0]) > 0.5]",
+        "print(json.dumps({'count': len(p), 'detections': [{'confidence': k} for k in p]}))",
+    ])
     proc = subprocess.run(
         [sys.executable, "-c", _SCRIPT, image_path],
         capture_output=True, text=True
     )
-    if proc.returncode != 0 or not proc.stdout.strip():
-        raise RuntimeError((proc.stderr.strip() or "YOLO subprocess failed"))
-    return json.loads(proc.stdout.strip())
+    # find the last line that looks like JSON (ignores any stray prints)
+    json_lines = [l for l in proc.stdout.splitlines() if l.strip().startswith("{")]
+    if not json_lines:
+        err = proc.stderr.strip() or proc.stdout.strip() or "YOLO subprocess produced no output"
+        raise RuntimeError(err)
+    data = json.loads(json_lines[-1])
+    if "error" in data:
+        raise ValueError(data["error"])
+    return data
