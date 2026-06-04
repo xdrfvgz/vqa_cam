@@ -640,7 +640,8 @@ def mode_server(args, cfg):
             result["passed"] = vqa_chain.match_answer(count_expr, str(result["count"]))
             return jsonify(result)
         except Exception as e:
-            return jsonify({"error": str(e)}), 500
+            msg = str(e)
+            return jsonify({"error": msg[:400] if len(msg) > 400 else msg}), 500
 
     @app.route("/models")
     def list_models():

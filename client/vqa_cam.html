@@ -1333,13 +1333,18 @@
           body: JSON.stringify({detector: monDetector, count_expr: monDetCount})
         });
         const dd = await dr.json();
+        if (dd.error) {
+          if (monDetResult) monDetResult.textContent = "Fehler";
+          preChips.forEach(c => resolveChip(c, monDetector.toUpperCase() + " Fehler: " + dd.error, "match"));
+          return;
+        }
         const n = dd.count ?? 0;
         if (monDetResult) monDetResult.textContent = n + " erkannt";
         if (!dd.passed) {
           preChips.forEach(c => resolveChip(c, monDetector.toUpperCase() + ": " + n + " erkannt (" + monDetCount + " ✗)", "no-match"));
           return;
         }
-      } catch { if (monDetResult) monDetResult.textContent = ""; }
+      } catch (e) { if (monDetResult) monDetResult.textContent = "Fehler: " + e.message; }
     } else {
       if (monDetResult) monDetResult.textContent = "";
     }
@@ -1888,10 +1893,23 @@
             body: JSON.stringify(detBody)
           });
           const dd = await dr.json();
+          if (_loadTimer) clearInterval(_loadTimer);
+          if (dd.error) {
+            if (mqDetResult) mqDetResult.textContent = "Fehler";
+            answerEl.className     = "mq-answer";
+            answerEl.style.display = "flex";
+            answerEl.innerHTML     = "";
+            const dtag = document.createElement("span"); dtag.className = "mq-answer-model"; dtag.textContent = detectorVal.toUpperCase();
+            const dtxt = document.createElement("span"); dtxt.className = "mq-answer-text";
+            dtxt.textContent = "Fehler: " + dd.error;
+            answerEl.appendChild(dtag); answerEl.appendChild(dtxt);
+            askBtn.disabled  = false;
+            askBtn.innerHTML = "→";
+            return;
+          }
           const n = dd.count ?? 0;
           if (mqDetResult) mqDetResult.textContent = n + " erkannt";
           if (!dd.passed) {
-            if (_loadTimer) clearInterval(_loadTimer);
             answerEl.className     = "mq-answer";
             answerEl.style.display = "flex";
             answerEl.innerHTML     = "";
@@ -1903,7 +1921,7 @@
             askBtn.innerHTML = "→";
             return;
           }
-        } catch { if (mqDetResult) mqDetResult.textContent = ""; }
+        } catch (e) { if (mqDetResult) mqDetResult.textContent = "Fehler: " + e.message; }
       } else {
         if (mqDetResult) mqDetResult.textContent = "";
       }
