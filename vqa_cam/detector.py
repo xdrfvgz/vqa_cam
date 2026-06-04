@@ -30,44 +30,65 @@ def _hog(image_path):
     }
 
 
+# YOLO runs in a child process so PyTorch/OpenSL ES resources are released
+# before the caller plays audio or runs other commands.
+_YOLO_SCRIPT = r"""
+import sys, json, os, warnings
+warnings.filterwarnings('ignore')
+os.environ['YOLO_VERBOSE'] = '0'
+
+import cv2
+
+# silence ultralytics loader output by temporarily redirecting stdout
+import io as _io
+_orig_stdout = sys.stdout
+sys.stdout = _io.StringIO()
+try:
+    from ultralytics import YOLO
+    _model = YOLO('yolov8n.pt')
+finally:
+    sys.stdout = _orig_stdout
+
+_path = sys.argv[1]
+_img = cv2.imread(_path)
+if _img is None:
+    print(json.dumps({'error': 'Image not found: ' + _path}), flush=True)
+    sys.exit(1)
+
+_results = _model(_img, verbose=False)
+_persons = [
+    float(b.conf[0]) for b in _results[0].boxes
+    if int(b.cls[0]) == 0 and float(b.conf[0]) > 0.5
+]
+print(json.dumps({'count': len(_persons),
+                  'detections': [{'confidence': k} for k in _persons]}), flush=True)
+"""
+
+
 def _yolo(image_path):
     import sys
     import json
     import subprocess
-    # Run YOLO in an isolated child process so its PyTorch/OpenSL ES resources
-    # are fully released before the caller runs play-audio or other audio commands.
-    # stdout carries only our JSON line; all other output goes to stderr.
-    _SCRIPT = "\n".join([
-        "import sys, json, os, warnings",
-        "warnings.filterwarnings('ignore')",
-        "os.environ['YOLO_VERBOSE'] = '0'",
-        "os.environ['ULTRALYTICS_LOGGING'] = '0'",
-        "import contextlib, io",
-        "import cv2",
-        "_real_stdout = sys.stdout",
-        "sys.stdout = io.StringIO()",   # silence any loader prints
-        "from ultralytics import YOLO",
-        "model = YOLO('yolov8n.pt')",
-        "sys.stdout = _real_stdout",
-        "path = sys.argv[1]",
-        "img = cv2.imread(path)",
-        "if img is None:",
-        "    print(json.dumps({'error': 'Image not found: ' + path}))",
-        "    sys.exit(1)",
-        "r = model(img, verbose=False)",
-        "p = [float(b.conf[0]) for b in r[0].boxes",
-        "     if int(b.cls[0]) == 0 and float(b.conf[0]) > 0.5]",
-        "print(json.dumps({'count': len(p), 'detections': [{'confidence': k} for k in p]}))",
-    ])
+    import os
+
+    env = dict(os.environ)
+    env["YOLO_VERBOSE"] = "0"
+
     proc = subprocess.run(
-        [sys.executable, "-c", _SCRIPT, image_path],
-        capture_output=True, text=True
+        [sys.executable, "-c", _YOLO_SCRIPT, image_path],
+        capture_output=True, text=True, env=env
     )
-    # find the last line that looks like JSON (ignores any stray prints)
+
+    # pick the last line that looks like JSON (ignore any stray prints)
     json_lines = [l for l in proc.stdout.splitlines() if l.strip().startswith("{")]
     if not json_lines:
-        err = proc.stderr.strip() or proc.stdout.strip() or "YOLO subprocess produced no output"
-        raise RuntimeError(err)
+        detail = proc.stderr.strip() or proc.stdout.strip()
+        raise RuntimeError(
+            "YOLO subprocess failed (rc={}){}".format(
+                proc.returncode, ": " + detail if detail else ""
+            )
+        )
+
     data = json.loads(json_lines[-1])
     if "error" in data:
         raise ValueError(data["error"])
