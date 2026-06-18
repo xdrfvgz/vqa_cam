@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-05-30T23:20:05.949246",
+  "question": "Do you see green?",
+  "answer": "yes",
+  "chain": [
+    {
+      "question": "Do you see green?",
+      "answer": "yes",
+      "matched": true
+    },
+    {
+      "question": "Do you see plants?",
+      "answer": "no",
+      "matched": true
+    }
+  ]
+}

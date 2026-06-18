@@ -1,0 +1,24 @@
+{
+  "image_path": "~/vqa_ai_cam/images/foto.jpg",
+  "alarm_dir": "~/vqa_ai_cam/alarms",
+  "capture_dir": "~/vqa_ai_cam/captures",
+  "sound_dir": "~/vqa_ai_cam/sounds",
+  "host": "127.0.0.1",
+  "port": 5666,
+  "capture_limit": 100,
+  "questions": [
+    {
+      "question": "Do you see green?",
+      "model": "blip",
+      "match": "no",
+      "cmd": "play-audio ~/bck/bak/huggingface-scripts/hug-chat/recognition/ai-recognition/sounds/alarm01.mp3",
+      "followup": {
+        "question": "Do you see plants?",
+        "model": "vilt",
+        "match": "no",
+        "cmd": "play-audio ~/bck/bak/huggingface-scripts/hug-chat/recognition/ai-recognition/sounds/alarm02.mp3",
+        "followup": null
+      }
+    }
+  ]
+}

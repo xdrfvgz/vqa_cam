@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-05-28T11:45:59.656834",
+  "question": "Are there plants",
+  "answer": "yes",
+  "chain": [
+    {
+      "question": "Are there plants",
+      "answer": "yes",
+      "matched": true
+    }
+  ]
+}

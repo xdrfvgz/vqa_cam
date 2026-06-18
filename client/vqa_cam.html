@@ -252,6 +252,30 @@
   #questions-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
 
   .question-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .question-chain { display: flex; flex-direction: column; gap: 6px; }
+  .question-chain-item { display: flex; flex-direction: column; gap: 4px; }
+  .question-chain-item .chain-children {
+    margin-left: 20px;
+    padding-left: 10px;
+    border-left: 2px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .add-followup-btn {
+    background: transparent;
+    border: 1px dashed var(--border);
+    color: var(--text-3);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    padding: 4px 8px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.15s;
+    align-self: flex-start;
+    margin-left: 20px;
+  }
+  .add-followup-btn:hover { border-color: var(--accent); color: var(--text); }
   .question-row input[type="text"] {
     background: var(--bg);
     border: 1px solid var(--border);
@@ -427,68 +451,308 @@
     padding: 14px 16px 6px;
   }
 
-  /* LIGHTBOX */
+  /* MODELS TAB */
+  .models-image-area {
+    width: 100%;
+    aspect-ratio: 4/3;
+    background: var(--bg);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .models-image-area img { width: 100%; height: 100%; object-fit: contain; }
+  .models-image-placeholder { color: var(--text-3); font-family: 'DM Mono', monospace; font-size: 0.75rem; }
+  .models-controls { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .models-source-select {
+    flex: 1;
+    padding: 9px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--text);
+    outline: none;
+  }
+  .mq-chain { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+  .mq-item { display: flex; flex-direction: column; gap: 6px; }
+  .mq-row { display: flex; gap: 6px; align-items: center; }
+  .mq-model-sel {
+    padding: 8px 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-2);
+    outline: none;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .mq-model-sel:focus { border-color: var(--accent); }
+  .mq-input {
+    flex: 1;
+    padding: 8px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    color: var(--text);
+    outline: none;
+  }
+  .mq-input:focus { border-color: var(--accent); }
+  .mq-match, .mq-cmd {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-2);
+    outline: none;
+  }
+  .mq-match:focus, .mq-cmd:focus { border-color: var(--accent); }
+  .mq-ask-btn {
+    padding: 8px 14px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+    transition: opacity 0.15s;
+  }
+  .mq-ask-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .mq-del-btn {
+    padding: 6px 10px;
+    background: transparent;
+    border: none;
+    color: var(--text-3);
+    cursor: pointer;
+    font-size: 1rem;
+    border-radius: 6px;
+    transition: color 0.15s;
+    flex-shrink: 0;
+  }
+  .mq-del-btn:hover { color: var(--red); }
+  .mq-answer {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 5px 12px 2px 2px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.76rem;
+  }
+  .mq-answer-model { color: var(--text-3); flex-shrink: 0; min-width: 50px; }
+  .mq-answer-text { color: var(--text); }
+  .mq-answer.matched .mq-answer-text { color: var(--red); font-weight: 500; }
+  .mq-answer.errored .mq-answer-text { color: var(--red); opacity: 0.65; }
+  .mq-children {
+    margin-left: 20px;
+    border-left: 2px solid var(--border);
+    padding-left: 12px;
+    padding-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .mq-add-followup {
+    display: inline-block;
+    margin: 4px 0 0 2px;
+    padding: 3px 10px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.72rem;
+    color: var(--text-3);
+    cursor: pointer;
+    transition: all 0.15s;
+    align-self: flex-start;
+  }
+  .mq-add-followup:hover { border-color: var(--accent); color: var(--text); }
+  .mq-add-top {
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.78rem;
+    color: var(--text-3);
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.15s;
+    margin-top: 4px;
+  }
+  .mq-add-top:hover { border-color: var(--accent); color: var(--text); }
+  .mq-detector-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.78rem;
+    color: var(--text-2);
+    flex-wrap: wrap;
+  }
+  .mq-detector-row label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  .mq-detector-row input[type=radio] { accent-color: var(--accent); }
+  .mq-mode-toggle {
+    display: flex;
+    gap: 2px;
+    background: var(--border);
+    border-radius: 8px;
+    padding: 2px;
+    margin-bottom: 16px;
+  }
+  .mq-mode-btn {
+    flex: 1;
+    padding: 6px 10px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .mq-mode-btn.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  .mq-cmp-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .mq-cmp-input {
+    flex: 1;
+    padding: 9px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    color: var(--text);
+    outline: none;
+  }
+  .mq-cmp-input:focus { border-color: var(--accent); }
+  .mq-cmp-ask {
+    padding: 9px 16px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: opacity 0.15s;
+  }
+  .mq-cmp-ask:disabled { opacity: 0.4; cursor: not-allowed; }
+  .mq-model-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .mq-chip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .mq-chip.selected { border-color: var(--accent); color: var(--text); background: var(--surface); }
+  .mq-cmp-results { display: flex; flex-direction: column; gap: 6px; }
+  .mq-cmp-result {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    background: var(--bg);
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+  }
+  .mq-cmp-result.pending .mq-cmp-ans { color: var(--text-3); animation: pulse 1.2s ease-in-out infinite; }
+  .mq-cmp-name { color: var(--text-3); min-width: 52px; flex-shrink: 0; }
+  .mq-cmp-ans  { color: var(--text); flex: 1; }
+  .mq-cmp-result.errored .mq-cmp-ans { color: var(--red); opacity: 0.7; }
   #lightbox {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.85);
-    z-index: 100;
-    align-items: center;
-    justify-content: flex-start;
+    background: rgba(0,0,0,0.92);
+    z-index: 9999;
+    isolation: isolate;
     flex-direction: column;
-    gap: 12px;
-    
-    padding: 48px 0 24px;
+    touch-action: none;
   }
   #lightbox.visible { display: flex; }
-  #lightbox img {
-    max-width: 95vw;
-    max-height: 55vh;
-    border-radius: 8px;
+
+  #lightbox-img {
+    width: 100%;
+    flex: 1 1 0;
+    min-height: 0;
     object-fit: contain;
+    display: block;
     cursor: pointer;
   }
+
   #lightbox-meta {
     font-family: 'DM Mono', monospace;
     font-size: 0.72rem;
-    color: rgba(255,255,255,0.6);
+    color: rgba(255,255,255,0.5);
     letter-spacing: 0.04em;
     text-align: center;
-    padding: 0 24px;
-    line-height: 1.6;
+    padding: 6px 24px;
+    line-height: 1.5;
+    flex-shrink: 0;
   }
+
   #lightbox-close {
     position: absolute;
-    top: 16px; right: 20px;
+    top: 12px; right: 16px;
     background: transparent;
     border: none;
     color: rgba(255,255,255,0.6);
-    font-size: 1.4rem;
+    font-size: 1.6rem;
     cursor: pointer;
     line-height: 1;
+    z-index: 101;
   }
 
   #lightbox-followup {
-    position: fixed;
-    bottom: 16px;
-    left: 0;
-    right: 0;
-    position: fixed;
-    bottom: 16px;
-    left: 0;
-    right: 0;
-    width: 100%;
-    max-width: 480px;
-    padding: 0 16px;
+    flex-shrink: 0;
+    padding: 8px 16px 24px;
+    background: rgba(0,0,0,0.7);
     display: none;
   }
   #lightbox-followup.visible { display: block; }
+
   #lightbox-answers {
     display: flex;
     flex-direction: column;
     gap: 4px;
     margin-bottom: 8px;
+    max-height: 120px;
+    overflow-y: auto;
   }
   .lb-chip {
     font-family: 'DM Mono', monospace;
@@ -500,6 +764,7 @@
   .lb-chip .aq { color: rgba(255,255,255,0.4); flex-shrink: 0; }
   .lb-chip .aa { color: rgba(255,255,255,0.9); }
   .lb-chip.pending .aa { color: rgba(255,255,255,0.3); animation: pulse 1.2s ease-in-out infinite; }
+
   #lightbox-input-row {
     display: flex;
     gap: 8px;
@@ -509,10 +774,10 @@
     background: rgba(255,255,255,0.1);
     border: 1px solid rgba(255,255,255,0.2);
     border-radius: 6px;
-    padding: 7px 10px;
+    padding: 9px 12px;
     color: #fff;
     font-family: 'DM Sans', sans-serif;
-    font-size: 0.82rem;
+    font-size: 0.85rem;
     outline: none;
   }
   #lightbox-input::placeholder { color: rgba(255,255,255,0.3); }
@@ -521,10 +786,11 @@
     background: rgba(255,255,255,0.1);
     border: 1px solid rgba(255,255,255,0.2);
     border-radius: 6px;
-    padding: 7px 12px;
-    color: rgba(255,255,255,0.7);
-    font-size: 0.82rem;
+    padding: 9px 14px;
+    color: rgba(255,255,255,0.8);
+    font-size: 0.85rem;
     cursor: pointer;
+    flex-shrink: 0;
   }
   #lightbox-input-row button:hover { background: rgba(255,255,255,0.2); }
 
@@ -535,6 +801,59 @@
     vertical-align: middle; margin-right: 6px;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Spinner-Varianten für Modelle-Tab */
+  .mq-ask-btn .spinner {
+    width: 13px; height: 13px; border-width: 2px;
+    border-color: rgba(255,255,255,0.35); border-top-color: #fff;
+    margin: 0;
+  }
+  .mq-answer .spinner,
+  .mq-cmp-ans .spinner {
+    width: 9px; height: 9px; border-width: 1.5px;
+    border-color: var(--border-strong); border-top-color: var(--text-2);
+    margin-right: 5px; flex-shrink: 0;
+  }
+
+  /* ── Mobile ── */
+  @media (max-width: 540px) {
+    body { padding: 16px 12px 60px; }
+
+    /* Tab-Leiste: kleinere Schrift auf engen Screens */
+    .tab-btn { font-size: 0.72rem; padding: 8px 6px; letter-spacing: 0; }
+
+    /* Einstellungen: Label über Input statt nebeneinander */
+    .cfg-row { flex-direction: column; align-items: stretch; gap: 6px; padding: 10px 14px; }
+    .cfg-row-check { flex-direction: row; align-items: center; justify-content: space-between; }
+    .cfg-label { min-width: auto; font-size: 0.8rem; color: var(--text-2); }
+    .cfg-row input[type="text"],
+    .cfg-row input[type="number"] { width: 100%; }
+    .cfg-row input[type="checkbox"] { flex-shrink: 0; width: 20px; height: 20px; }
+
+    /* Kette-Modus Zeile 1: Modell-Select kompakter */
+    .mq-model-sel { font-size: 0.68rem; padding: 7px 6px; }
+
+    /* Vergleich-Modus: Input-Zeile sicherstellen */
+    .mq-cmp-row { gap: 6px; }
+    .mq-cmp-input { font-size: 0.78rem; }
+
+    /* Bessere Touch-Targets */
+    .btn { padding: 14px 10px; }
+    .mq-ask-btn { padding: 10px 16px; min-width: 44px; }
+    .mq-del-btn { padding: 8px 12px; min-width: 36px; }
+    .mq-cmp-ask { padding: 10px 18px; }
+
+    /* Galerie: 1 Spalte auf sehr engen Screens */
+    .gallery-grid { grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 12px 12px; }
+
+    /* Stats-Zeile umbrechen */
+    #inline-stats { font-size: 0.68rem; gap: 4px; }
+  }
+
+  @media (max-width: 380px) {
+    .gallery-grid { grid-template-columns: 1fr; }
+    .tab-btn { font-size: 0.65rem; padding: 7px 4px; }
+  }
 
 </style>
 </head>
@@ -549,6 +868,7 @@
   <button class="tab-btn active" onclick="switchTab('monitor', this)">Monitor</button>
   <button class="tab-btn" onclick="switchTab('settings', this)">Einstellungen</button>
   <button class="tab-btn" onclick="switchTab('gallery', this); loadGallery()">Galerie</button>
+  <button class="tab-btn" onclick="switchTab('models', this); initModelsTab()">Modelle</button>
 </div>
 
 <!-- MONITOR -->
@@ -562,6 +882,10 @@
       </div>
       <div class="controls">
         <button class="btn" id="snap-btn" onclick="captureAndAsk()">Foto aufnehmen</button>
+        <label class="btn" style="cursor:pointer;display:flex;align-items:center;justify-content:center;">
+          Durchsuchen
+          <input type="file" accept="image/*" style="display:none" onchange="monUploadFile(this)">
+        </label>
         <button class="btn start" id="loop-btn" onclick="toggleLoop()">Loop starten</button>
       </div>
       <div id="answers-bar"></div>
@@ -582,7 +906,18 @@
           <span id="stat-alarms">0</span> Alarme
         </span>
       </div>
+      <div class="mq-detector-row" style="margin:0 0 8px 0;">
+        <span>Vor-Filter:</span>
+        <label><input type="radio" name="mon-detector" value="none" checked> keiner</label>
+        <label><input type="radio" name="mon-detector" value="hog"> HOG <span style="color:var(--text-3)">(schnell)</span></label>
+        <label><input type="radio" name="mon-detector" value="yolo"> YOLO <span style="color:var(--text-3)">(präzise)</span></label>
+        <input type="text" id="mon-det-count" value=">0" title="Anzahl-Bedingung: >0 >=2 ==1 !=0" style="width:48px;font-family:'DM Mono',monospace;font-size:0.75rem;border:1px solid var(--border);border-radius:5px;padding:2px 5px;background:var(--bg);">
+        <span id="mon-det-result" style="font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--text-3);min-width:60px;"></span>
+      </div>
       <div id="questions-list"></div>
+      <div style="font-size:0.72rem;color:var(--text-3);padding:2px 16px 8px;font-family:'DM Mono',monospace;">
+        match: <b>wort</b> · <b>!wort</b> · <b>&gt;N</b> &lt;N &gt;=N &lt;=N !=N
+      </div>
     </div>
   </div>
 </div>
@@ -596,7 +931,7 @@
       <input type="number" id="cfg-interval" value="5" min="1" max="3600">
     </div>
     <div class="cfg-section">Alarm</div>
-    <div class="cfg-row">
+    <div class="cfg-row cfg-row-check">
       <span class="cfg-label">Alarm-Ton</span>
       <input type="checkbox" id="cfg-sound" checked>
     </div>
@@ -604,16 +939,16 @@
       <span class="cfg-label">Sounddatei</span>
       <input type="text" id="cfg-soundfile" value="default_alarm_sound.wav">
     </div>
-    <div class="cfg-row">
+    <div class="cfg-row cfg-row-check">
       <span class="cfg-label">Benachrichtigung</span>
       <input type="checkbox" id="cfg-notify" checked>
     </div>
-    <div class="cfg-row">
+    <div class="cfg-row cfg-row-check">
       <span class="cfg-label">Bild speichern (Alarm)</span>
       <input type="checkbox" id="cfg-save" checked>
     </div>
     <div class="cfg-section">Aufnahmen</div>
-    <div class="cfg-row">
+    <div class="cfg-row cfg-row-check">
       <span class="cfg-label">Alle Aufnahmen speichern</span>
       <input type="checkbox" id="cfg-save-all">
     </div>
@@ -642,6 +977,60 @@
     <div class="gallery-section-title" style="margin-top:24px">Aufnahmen</div>
     <div id="captures-container"></div>
     <div id="captures-empty" style="display:none">Keine Aufnahmen vorhanden</div>
+  </div>
+</div>
+
+<!-- MODELLE -->
+<div class="tab-panel" id="tab-models">
+  <div class="card" style="padding: 16px;">
+    <div class="models-image-area" id="models-image-area">
+      <span class="models-image-placeholder">Kein Bild</span>
+    </div>
+    <p id="mq-no-image-hint" style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--red);margin-bottom:10px;display:none;">
+      ↑ Bitte zuerst Foto aufnehmen oder aus Galerie wählen
+    </p>
+    <div class="models-controls">
+      <button class="btn" style="flex:none;padding:9px 14px;border:1px solid var(--border);border-radius:8px;" onclick="modelsTakePhoto()">Foto aufnehmen</button>
+      <label class="btn" style="flex:none;padding:9px 14px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:0.85rem;background:var(--surface);">
+        Durchsuchen
+        <input type="file" accept="image/*" style="display:none" onchange="mqUploadFile(this)">
+      </label>
+      <select id="models-source-select" class="models-source-select" onchange="mqSelectImage(this)">
+        <option value="">Bild aus Galerie wählen...</option>
+        <optgroup label="Alarme" id="mq-alarm-opts"></optgroup>
+        <optgroup label="Aufnahmen" id="mq-capture-opts"></optgroup>
+      </select>
+    </div>
+
+    <div class="mq-mode-toggle">
+      <button class="mq-mode-btn active" id="mq-btn-chain" onclick="mqSwitchMode('chain')">Kette</button>
+      <button class="mq-mode-btn" id="mq-btn-cmp" onclick="mqSwitchMode('cmp')">Vergleich</button>
+    </div>
+
+    <!-- KETTE -->
+    <div id="mq-panel-chain">
+      <div class="mq-detector-row">
+        <span>Vor-Filter:</span>
+        <label><input type="radio" name="mq-detector" value="none" checked> keiner</label>
+        <label><input type="radio" name="mq-detector" value="hog"> HOG <span style="color:var(--text-3)">(schnell)</span></label>
+        <label><input type="radio" name="mq-detector" value="yolo"> YOLO <span style="color:var(--text-3)">(präzise)</span></label>
+        <input type="text" id="mq-det-count" value=">0" title="Anzahl-Bedingung: >0 >=2 ==1 !=0" style="width:48px;font-family:'DM Mono',monospace;font-size:0.75rem;border:1px solid var(--border);border-radius:5px;padding:2px 5px;background:var(--bg);">
+        <span id="mq-det-result" style="font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--text-3);min-width:60px;"></span>
+      </div>
+      <div class="mq-chain" id="mq-chain"></div>
+      <button class="mq-add-top" onclick="mqAddQuestion()">+ Frage hinzufügen</button>
+      <button class="mq-add-top" id="mq-apply-btn" onclick="mqApplyToConfig()" style="border-style:solid;border-color:var(--accent);color:var(--accent);margin-top:4px;">↑ Als Loop-Konfiguration übernehmen</button>
+    </div>
+
+    <!-- VERGLEICH -->
+    <div id="mq-panel-cmp" style="display:none">
+      <div class="mq-cmp-row">
+        <input type="text" class="mq-cmp-input" id="mq-cmp-question" placeholder="Frage eingeben...">
+        <button class="mq-cmp-ask" id="mq-cmp-btn" onclick="mqCmpAsk()" disabled>→</button>
+      </div>
+      <div class="mq-model-chips" id="mq-model-chips"></div>
+      <div class="mq-cmp-results" id="mq-cmp-results"></div>
+    </div>
   </div>
 </div>
 
@@ -678,26 +1067,76 @@
 
   function server() { return document.getElementById("cfg-server").value.trim(); }
 
-  function addQuestion(q = "", m = "yes", cmd = "") {
-    const list = document.getElementById("questions-list");
+  function createQuestionItem(q = "", m = "yes", cmd = "", followup = null) {
+    const item = document.createElement("div");
+    item.className = "question-chain-item";
+
     const row = document.createElement("div");
     row.className = "question-row";
     row.innerHTML =
       '<input type="text" placeholder="What do you see?" value="' + q + '">' +
-      '<input type="text" class="match-word" placeholder="match" value="' + m + '">' +
+      '<input type="text" class="match-word" placeholder="yes / !no / &gt;3" value="' + m + '"' +
+      ' title="Treffer wenn: Wort (enthält), !Wort (enthält nicht), &gt;N &lt;N &gt;=N &lt;=N !=N (Zahl in Antwort)">' +
       '<input type="text" class="cmd-input" placeholder="cmd bei Match" value="' + cmd + '">' +
-      '<button class="del-btn" onclick="this.parentElement.remove()">×</button>';
-    list.appendChild(row);
+      '<button class="del-btn" onclick="this.closest(\'.question-chain-item\').remove()">×</button>';
+    item.appendChild(row);
+
+    const children = document.createElement("div");
+    children.className = "chain-children";
+    children.style.display = "none";
+    item.appendChild(children);
+
+    const addBtn = document.createElement("button");
+    addBtn.className = "add-followup-btn";
+    addBtn.textContent = "+ Folgefrage";
+    addBtn.onclick = () => {
+      const child = createQuestionItem();
+      children.appendChild(child);
+      children.style.display = "flex";
+      addBtn.style.display = "none";
+    };
+    item.appendChild(addBtn);
+
+    if (followup) {
+      const child = createQuestionItem(
+        followup.question || "",
+        followup.match || "yes",
+        followup.cmd || "",
+        followup.followup || null
+      );
+      children.appendChild(child);
+      children.style.display = "flex";
+      addBtn.style.display = "none";
+    }
+
+    return item;
+  }
+
+  function addQuestion(q = "", m = "yes", cmd = "", followup = null) {
+    const list = document.getElementById("questions-list");
+    list.appendChild(createQuestionItem(q, m, cmd, followup));
+  }
+
+  function getQuestionChain(item) {
+    const inputs = item.querySelector(".question-row").querySelectorAll("input[type='text']");
+    const q   = inputs[0].value.trim();
+    const m   = inputs[1].value.trim() || "";
+    const cmd = inputs[2].value.trim() || "";
+    if (!q) return null;
+    const obj = { question: q, match: m, cmd: cmd };
+    const children = item.querySelector(".chain-children");
+    if (children && children.children.length > 0) {
+      const child = getQuestionChain(children.children[0]);
+      if (child) obj.followup = child;
+    }
+    return obj;
   }
 
   function getQuestions() {
     const result = [];
-    document.querySelectorAll(".question-row").forEach(row => {
-      const inputs = row.querySelectorAll("input[type='text']");
-      const q   = inputs[0].value.trim();
-      const m   = inputs[1].value.trim() || "";
-      const cmd = inputs[2].value.trim() || "";
-      if (q) result.push({ question: q, match: m, cmd: cmd });
+    document.querySelectorAll("#questions-list > .question-chain-item").forEach(item => {
+      const obj = getQuestionChain(item);
+      if (obj) result.push(obj);
     });
     return result;
   }
@@ -827,59 +1266,109 @@
     input.focus();
   }
 
+  async function evaluateChain(item, depth, preChip) {
+    const question = item.question || "";
+    const match    = item.match || "";
+    const cmd      = item.cmd || "";
+    const followup = item.followup || null;
+    const isLeaf   = !followup;
+
+    if (!question) return;
+
+    const chip = preChip || addPendingChip(question);
+    chip.style.marginLeft = (depth * 16) + "px";
+    await new Promise(r => requestAnimationFrame(r)); // Chip erst rendern, dann anfragen
+    const answer = await askServer(question);
+    const matched = match && mqMatchAnswer(match, answer);
+    resolveChip(chip, answer, matched ? "match" : "no-match");
+
+    if (matched) {
+      if (isLeaf) {
+        statAlarms++;
+        updateStats();
+        flashAlarm();
+        notify("Alarm", "Q: " + question + "\nA: " + answer);
+        if (document.getElementById("cfg-save").checked) await saveAlarmImage(question, answer);
+        if (document.getElementById("cfg-sound").checked) {
+          try {
+            await fetch(server() + "/play_sound", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ file: document.getElementById("cfg-soundfile").value.trim() })
+            });
+          } catch {}
+        }
+      }
+      if (cmd) {
+        try {
+          await fetch(server() + "/run_cmd", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ cmd })
+          });
+        } catch {}
+      }
+      if (followup) {
+        await evaluateChain(followup, depth + 1);
+      }
+    }
+  }
+
+  async function runMonitorAnalysis() {
+    const questions = getQuestions();
+    if (!questions.length) return;
+    document.getElementById("answers-bar").innerHTML = "";
+    const preChips = questions.map(item => addPendingChip(item.question || ""));
+    await new Promise(r => requestAnimationFrame(r));
+    document.getElementById("followup-row").classList.add("visible");
+    statTotal++;
+    updateStats();
+    const monDetector  = document.querySelector('input[name="mon-detector"]:checked')?.value || "none";
+    const monDetCount  = document.getElementById("mon-det-count")?.value.trim() || ">0";
+    const monDetResult = document.getElementById("mon-det-result");
+    if (monDetector !== "none") {
+      try {
+        const dr = await fetch(server() + "/detect", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({detector: monDetector, count_expr: monDetCount})
+        });
+        const dd = await dr.json();
+        if (dd.error) {
+          if (monDetResult) monDetResult.textContent = "Fehler";
+          preChips.forEach(c => resolveChip(c, monDetector.toUpperCase() + " Fehler: " + dd.error, "match"));
+          return;
+        }
+        const n = dd.count ?? 0;
+        if (monDetResult) monDetResult.textContent = n + " erkannt";
+        if (!dd.passed) {
+          preChips.forEach(c => resolveChip(c, monDetector.toUpperCase() + ": " + n + " erkannt (" + monDetCount + " ✗)", "no-match"));
+          return;
+        }
+      } catch (e) { if (monDetResult) monDetResult.textContent = "Fehler: " + e.message; }
+    } else {
+      if (monDetResult) monDetResult.textContent = "";
+    }
+    for (let i = 0; i < questions.length; i++) {
+      await evaluateChain(questions[i], 0, preChips[i]);
+    }
+    const now = new Date();
+    document.getElementById("stat-last").textContent =
+      String(now.getHours()).padStart(2, "0") + ":" +
+      String(now.getMinutes()).padStart(2, "0") + ":" +
+      String(now.getSeconds()).padStart(2, "0");
+  }
+
   async function captureAndAsk() {
     if (loopRunning) return;
     const btn = document.getElementById("snap-btn");
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span>Läuft...';
-    const questions = getQuestions();
-    if (questions.length === 0) {
-      btn.disabled = false;
-      btn.textContent = "Foto aufnehmen";
-      return;
-    }
-    document.getElementById("answers-bar").innerHTML = "";
+    btn.innerHTML = '<span class="spinner"></span>Foto wird aufgenommen...';
+    await new Promise(r => setTimeout(r, 30));
+    if (!getQuestions().length) { btn.disabled = false; btn.textContent = "Foto aufnehmen"; return; }
     try {
       await capturePhoto();
-      document.getElementById("followup-row").classList.add("visible");
-      statTotal++;
-      updateStats();
-      for (const { question, match, cmd } of questions) {
-        const chip = addPendingChip(question);
-        const answer = await askServer(question);
-        const matched = match && answer.includes(match);
-        resolveChip(chip, answer, matched ? "match" : "no-match");
-        if (matched) {
-          statAlarms++;
-          updateStats();
-          flashAlarm();
-          notify("Alarm", "Q: " + question + "\nA: " + answer);
-          if (document.getElementById("cfg-save").checked) await saveAlarmImage(question, answer);
-          if (document.getElementById("cfg-sound").checked) {
-            try {
-              await fetch(server() + "/play_sound", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ file: document.getElementById("cfg-soundfile").value.trim() })
-              });
-            } catch {}
-          }
-          if (cmd) {
-            try {
-              await fetch(server() + "/run_cmd", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ cmd })
-              });
-            } catch {}
-          }
-        }
-      }
-      const now = new Date();
-      document.getElementById("stat-last").textContent =
-        String(now.getHours()).padStart(2, "0") + ":" +
-        String(now.getMinutes()).padStart(2, "0") + ":" +
-        String(now.getSeconds()).padStart(2, "0");
+      btn.innerHTML = '<span class="spinner"></span>Analyse läuft...';
+      await runMonitorAnalysis();
     } catch (e) {
       const chip = addPendingChip("Fehler");
       resolveChip(chip, e.message, "match");
@@ -907,6 +1396,7 @@
     socket.on("loop_state", (data) => {
       loopRunning = !!data.running;
       const btn = document.getElementById("loop-btn");
+      btn.disabled = false;
       btn.textContent = loopRunning ? "Loop stoppen" : "Loop starten";
       btn.className   = loopRunning ? "btn stop" : "btn start";
       document.getElementById("status-dot").className = loopRunning ? "dot running" : "dot online";
@@ -933,9 +1423,11 @@
 
     socket.on("loop_answer", (data) => {
       const r = data.result;
+      const depth = r.depth || 0;
       const chip = addPendingChip(r.question);
+      chip.style.marginLeft = (depth * 16) + "px";
       resolveChip(chip, r.answer, r.matched ? "match" : "no-match");
-      if (r.matched) {
+      if (r.matched && r.is_leaf) {
         flashAlarm();
         notify("Alarm", "Q: " + r.question + "\nA: " + r.answer);
       }
@@ -946,15 +1438,22 @@
   function toggleLoop() { loopRunning ? stopLoop() : startLoop(); }
 
   async function startLoop() {
+    const btn = document.getElementById("loop-btn");
+    btn.innerHTML = '<span class="spinner"></span>Startet...';
+    await new Promise(r => setTimeout(r, 30));
     const questions = getQuestions();
     if (questions.length === 0) return;
+    const detectorVal   = document.querySelector('input[name="mon-detector"]:checked')?.value || "none";
+    const detectorCount = document.getElementById("mon-det-count")?.value.trim() || ">0";
     const payload = {
-      questions: questions,
-      interval:  parseInt(document.getElementById("cfg-interval").value) || 5,
-      save:      document.getElementById("cfg-save").checked,
-      save_all:  document.getElementById("cfg-save-all").checked,
-      sound:     document.getElementById("cfg-sound").checked,
-      soundfile: document.getElementById("cfg-soundfile").value.trim(),
+      questions:       questions,
+      interval:        parseInt(document.getElementById("cfg-interval").value) || 5,
+      save:            document.getElementById("cfg-save").checked,
+      save_all:        document.getElementById("cfg-save-all").checked,
+      sound:           document.getElementById("cfg-sound").checked,
+      soundfile:       document.getElementById("cfg-soundfile").value.trim(),
+      detector:        detectorVal === "none" ? null : detectorVal,
+      detector_count:  detectorVal === "none" ? ">0" : detectorCount,
     };
     try {
       const r = await fetch(server() + "/loop/start", {
@@ -975,13 +1474,515 @@
   }
 
   async function stopLoop() {
+    const btn = document.getElementById("loop-btn");
+    btn.innerHTML = '<span class="spinner"></span>Stoppt...';
+    await new Promise(r => setTimeout(r, 30));
     try {
       await fetch(server() + "/loop/stop", { method: "POST" });
       document.getElementById("followup-row").classList.add("visible");
     } catch (e) {}
   }
 
-  // GALERIE
+  // MODELS TAB
+  let MQ_MODELS  = ["blip"];
+  let mqImage    = { type: null, file: null };
+  let mqMode     = "chain";
+  let mqSelected = new Set(["blip"]);
+
+  function mqSetImage(type, file) {
+    mqImage = { type, file };
+    const hint = document.getElementById("mq-no-image-hint");
+    if (hint) hint.style.display = "none";
+    document.querySelectorAll(".mq-ask-btn").forEach(b => { b.disabled = false; });
+    const cmpBtn = document.getElementById("mq-cmp-btn");
+    if (cmpBtn) cmpBtn.disabled = false;
+  }
+
+  async function initModelsTab() {
+    try {
+      const mr = await fetch(server() + "/models");
+      const md = await mr.json();
+      if (Array.isArray(md.available) && md.available.length) {
+        MQ_MODELS = md.available;
+        if (!MQ_MODELS.some(m => mqSelected.has(m))) {
+          mqSelected = new Set([MQ_MODELS[0]]);
+        }
+      }
+    } catch {}
+
+    const alarmOpts   = document.getElementById("mq-alarm-opts");
+    const captureOpts = document.getElementById("mq-capture-opts");
+    alarmOpts.innerHTML = "";
+    captureOpts.innerHTML = "";
+    try {
+      const [ar, cr] = await Promise.all([
+        fetch(server() + "/alarms"),
+        fetch(server() + "/captures")
+      ]);
+      const ad = await ar.json();
+      const cd = await cr.json();
+      (ad.alarms || []).reverse().forEach(a => {
+        const opt = document.createElement("option");
+        opt.value = a.file;
+        opt.dataset.itype = "alarm";
+        opt.textContent = a.file.replace(".jpg","").replace(/_/g," ");
+        alarmOpts.appendChild(opt);
+      });
+      (cd.files || []).forEach(f => {
+        const opt = document.createElement("option");
+        opt.value = f;
+        opt.dataset.itype = "capture";
+        opt.textContent = f.replace(".jpg","").replace(/_/g," ");
+        captureOpts.appendChild(opt);
+      });
+    } catch {}
+    if (document.getElementById("mq-chain").children.length === 0) mqAddQuestion();
+    mqBuildChips();
+  }
+
+  function mqSwitchMode(mode) {
+    mqMode = mode;
+    document.getElementById("mq-panel-chain").style.display = mode === "chain" ? "block" : "none";
+    document.getElementById("mq-panel-cmp").style.display   = mode === "cmp"   ? "block" : "none";
+    document.getElementById("mq-btn-chain").className = "mq-mode-btn" + (mode === "chain" ? " active" : "");
+    document.getElementById("mq-btn-cmp").className   = "mq-mode-btn" + (mode === "cmp"   ? " active" : "");
+  }
+
+  function mqBuildChips() {
+    const container = document.getElementById("mq-model-chips");
+    container.innerHTML = "";
+    MQ_MODELS.forEach(m => {
+      const chip = document.createElement("div");
+      chip.className = "mq-chip" + (mqSelected.has(m) ? " selected" : "");
+      chip.textContent = m;
+      chip.addEventListener("click", () => {
+        mqSelected.has(m) ? mqSelected.delete(m) : mqSelected.add(m);
+        chip.className = "mq-chip" + (mqSelected.has(m) ? " selected" : "");
+      });
+      container.appendChild(chip);
+    });
+  }
+
+  async function mqCmpAsk() {
+    if (!mqImage.type) {
+      document.getElementById("mq-no-image-hint").style.display = "block";
+      document.getElementById("models-image-area").scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+    const question = document.getElementById("mq-cmp-question").value.trim();
+    if (!question || !mqSelected.size) return;
+    const btn = document.getElementById("mq-cmp-btn");
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>···';
+    const results = document.getElementById("mq-cmp-results");
+    results.innerHTML = "";
+    let loaded = [];
+    try {
+      const lr = await fetch(server() + "/models");
+      const ld = await lr.json();
+      loaded = ld.loaded || [];
+    } catch {}
+    const rows = {};
+    [...mqSelected].forEach(m => {
+      const row = document.createElement("div");
+      row.className = "mq-cmp-result pending";
+      const name = document.createElement("span"); name.className = "mq-cmp-name"; name.textContent = m;
+      const ans  = document.createElement("span"); ans.className  = "mq-cmp-ans";
+      ans.innerHTML = loaded.includes(m)
+        ? '<span class="spinner"></span>···'
+        : '<span class="spinner"></span>lädt… 0s';
+      row.appendChild(name); row.appendChild(ans);
+      results.appendChild(row);
+      rows[m] = { row, ans, isLoaded: loaded.includes(m) };
+    });
+    for (const m of mqSelected) {
+      const body = { question, model: m };
+      if (mqImage.type === "alarm")   body.alarm_file   = mqImage.file;
+      if (mqImage.type === "capture") body.capture_file = mqImage.file;
+      let _cmpTimer = null;
+      if (!rows[m].isLoaded) {
+        const _t0 = Date.now();
+        rows[m].ans.innerHTML = '<span class="spinner"></span>lädt… 0s';
+        _cmpTimer = setInterval(() => {
+          rows[m].ans.innerHTML = '<span class="spinner"></span>lädt… ' + Math.floor((Date.now() - _t0) / 1000) + 's';
+        }, 1000);
+      }
+      try {
+        const resp = await fetch(server() + "/ask", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        if (_cmpTimer) clearInterval(_cmpTimer);
+        const data = await resp.json();
+        const answer = data.answer || (resp.status === 409 ? "nicht geladen" : (data.error || "?"));
+        rows[m].row.className = "mq-cmp-result" + (!data.answer ? " errored" : "");
+        rows[m].ans.textContent = answer;
+      } catch (e) {
+        if (_cmpTimer) clearInterval(_cmpTimer);
+        rows[m].row.className = "mq-cmp-result errored";
+        rows[m].ans.textContent = "Fehler";
+      }
+    }
+    btn.disabled = false; btn.innerHTML = "→";
+  }
+
+  async function _uploadToServer(file) {
+    const form = new FormData();
+    form.append("file", file);
+    const r = await fetch(server() + "/upload", { method: "POST", body: form });
+    if (!r.ok) throw new Error("Upload fehlgeschlagen");
+  }
+
+  async function monUploadFile(input) {
+    if (!input.files.length) return;
+    const file = input.files[0];
+    const btn = document.getElementById("snap-btn");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Lädt hoch...';
+    document.getElementById("answers-bar").innerHTML = "";
+    try {
+      await _uploadToServer(file);
+      showLatestImage();
+      btn.innerHTML = '<span class="spinner"></span>Analyse läuft...';
+      await runMonitorAnalysis();
+    } catch (e) {
+      alert("Upload fehlgeschlagen: " + e.message);
+    }
+    btn.disabled = false;
+    btn.textContent = "Foto aufnehmen";
+    input.value = "";
+  }
+
+  async function mqUploadFile(input) {
+    if (!input.files.length) return;
+    const file = input.files[0];
+    const area = document.getElementById("models-image-area");
+    area.innerHTML = '<span class="models-image-placeholder">Lädt hoch...</span>';
+    try {
+      await _uploadToServer(file);
+      mqSetImage("current", null);
+      const img = document.createElement("img");
+      img.src = server() + "/image?t=" + Date.now();
+      area.innerHTML = "";
+      area.appendChild(img);
+      document.getElementById("models-source-select").value = "";
+      document.getElementById("mq-no-image-hint").style.display = "none";
+      // auto-run all top-level questions
+      const items = Array.from(document.querySelectorAll("#mq-chain > .mq-item"));
+      for (const it of items) { if (it._doAsk) await it._doAsk(); }
+    } catch (e) {
+      area.innerHTML = '<span class="models-image-placeholder">Upload fehlgeschlagen</span>';
+    }
+    input.value = "";
+  }
+
+  async function modelsTakePhoto() {
+    const area = document.getElementById("models-image-area");
+    area.innerHTML = '<span class="models-image-placeholder">Aufnahme...</span>';
+    try {
+      await fetch(server() + "/photo", { method: "POST" });
+      mqSetImage("current", null);
+      const img = document.createElement("img");
+      img.src = server() + "/image?t=" + Date.now();
+      area.innerHTML = "";
+      area.appendChild(img);
+      document.getElementById("models-source-select").value = "";
+    } catch {
+      area.innerHTML = '<span class="models-image-placeholder">Fehler bei Aufnahme</span>';
+    }
+  }
+
+  function mqSelectImage(sel) {
+    const opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value) return;
+    mqSetImage(opt.dataset.itype, opt.value);
+    const endpoint = opt.dataset.itype === "alarm" ? "alarms" : "captures";
+    const url = server() + "/" + endpoint + "/" + encodeURIComponent(opt.value);
+    const area = document.getElementById("models-image-area");
+    const img = document.createElement("img");
+    img.src = url;
+    area.innerHTML = "";
+    area.appendChild(img);
+  }
+
+  function mqMakeModelSel() {
+    const sel = document.createElement("select");
+    sel.className = "mq-model-sel";
+    MQ_MODELS.forEach(m => {
+      const opt = document.createElement("option");
+      opt.value = m;
+      opt.textContent = m;
+      if (m === "blip") opt.selected = true;
+      sel.appendChild(opt);
+    });
+    return sel;
+  }
+
+  function mqCollectItem(item) {
+    const q     = item.querySelector(":scope > .mq-row .mq-input")?.value.trim() || "";
+    const model = item.querySelector(":scope > .mq-row .mq-model-sel")?.value || "";
+    const match = item.querySelector(":scope .mq-match")?.value.trim() || "";
+    const cmd   = item.querySelector(":scope .mq-cmd")?.value.trim() || "";
+    if (!q) return null;
+    const childItem = item.querySelector(":scope > .mq-children > .mq-item");
+    return { question: q, model, match, cmd, followup: childItem ? mqCollectItem(childItem) : null };
+  }
+
+  async function mqApplyToConfig() {
+    const questions = Array.from(document.querySelectorAll("#mq-chain > .mq-item"))
+      .map(mqCollectItem).filter(Boolean);
+    if (!questions.length) return;
+    const detector      = document.querySelector('input[name="mq-detector"]:checked')?.value || "none";
+    const detectorCount = document.getElementById("mq-det-count")?.value.trim() || ">0";
+    const btn = document.getElementById("mq-apply-btn");
+    const orig = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "…";
+    try {
+      await fetch(server() + "/loop/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          questions,
+          detector:       detector === "none" ? null : detector,
+          detector_count: detector === "none" ? ">0" : detectorCount,
+        })
+      });
+      await fetch(server() + "/loop/save", { method: "POST" });
+      btn.textContent = "✓ Gespeichert";
+    } catch (e) {
+      btn.textContent = "Fehler: " + e.message;
+    }
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
+  }
+
+  function mqMatchAnswer(expr, answer) {
+    if (!expr) return false;
+    expr = expr.trim();
+    const numOp = expr.match(/^(>=|<=|!=|>|<)\s*(\d+(?:\.\d+)?)$/);
+    if (numOp) {
+      const op = numOp[1], num = parseFloat(numOp[2]);
+      const m = answer.match(/\d+(?:\.\d+)?/);
+      if (!m) return op === '!=';
+      const val = parseFloat(m[0]);
+      if (op === '>')  return val > num;
+      if (op === '<')  return val < num;
+      if (op === '>=') return val >= num;
+      if (op === '<=') return val <= num;
+      if (op === '!=') return val !== num;
+    }
+    if (expr.startsWith('!')) {
+      const word = expr.slice(1).trim();
+      return !!word && !answer.toLowerCase().includes(word.toLowerCase());
+    }
+    return answer.toLowerCase().includes(expr.toLowerCase());
+  }
+
+  function mqAddQuestion(parentChain, depth) {
+    const chain = parentChain || document.getElementById("mq-chain");
+    const d = depth || 0;
+    const item = document.createElement("div");
+    item.className = "mq-item";
+
+    const row1 = document.createElement("div");
+    row1.className = "mq-row";
+    const row2 = document.createElement("div");
+    row2.className = "mq-row";
+
+    const modelSel   = mqMakeModelSel();
+    const qInput     = document.createElement("input");
+    qInput.type      = "text";
+    qInput.className = "mq-input";
+    qInput.placeholder = "Frage...";
+
+    const matchInput     = document.createElement("input");
+    matchInput.type      = "text";
+    matchInput.className = "mq-match";
+    matchInput.placeholder = "yes / !no / >3";
+    matchInput.title = "Treffer wenn: Wort (enthält), !Wort (enthält nicht), >N <N >=N <=N !=N (Zahl in Antwort)";
+
+    const cmdInput       = document.createElement("input");
+    cmdInput.type        = "text";
+    cmdInput.className   = "mq-cmd";
+    cmdInput.placeholder = "cmd bei Treffer";
+    cmdInput.title       = "Shell-Befehl der bei Match ausgeführt wird";
+
+    const askBtn       = document.createElement("button");
+    askBtn.className   = "mq-ask-btn";
+    askBtn.textContent = "→";
+    askBtn.disabled    = !mqImage.type;
+
+    const delBtn       = document.createElement("button");
+    delBtn.className   = "mq-del-btn";
+    delBtn.textContent = "×";
+    delBtn.onclick = () => item.remove();
+
+    row1.appendChild(modelSel);
+    row1.appendChild(qInput);
+    row2.appendChild(matchInput);
+    row2.appendChild(cmdInput);
+    row2.appendChild(askBtn);
+    row2.appendChild(delBtn);
+    item.appendChild(row1);
+    item.appendChild(row2);
+
+    const answerEl = document.createElement("div");
+    answerEl.className = "mq-answer";
+    answerEl.style.display = "none";
+    item.appendChild(answerEl);
+
+    const children = document.createElement("div");
+    children.className = "mq-children";
+    children.style.display = "none";
+    item.appendChild(children);
+
+    const addFollowupBtn       = document.createElement("button");
+    addFollowupBtn.className   = "mq-add-followup";
+    addFollowupBtn.textContent = "+ Folgefrage";
+    addFollowupBtn.onclick = () => {
+      children.style.display = "flex";
+      children.style.flexDirection = "column";
+      mqAddQuestion(children, d + 1);
+      addFollowupBtn.style.display = "none";
+    };
+    item.appendChild(addFollowupBtn);
+
+    const doAsk = async () => {
+      const question = qInput.value.trim();
+      const model    = modelSel.value;
+      const matchWord = matchInput.value.trim().toLowerCase();
+      if (!question) { qInput.focus(); return; }
+
+      askBtn.disabled  = true;
+      askBtn.innerHTML = '<span class="spinner"></span>···';
+
+      let loaded = [];
+      try {
+        const lr = await fetch(server() + "/models");
+        const ld = await lr.json();
+        loaded = ld.loaded || [];
+      } catch {}
+      let _loadTimer = null;
+      answerEl.className = "mq-answer";
+      answerEl.style.display = "flex";
+      answerEl.innerHTML = "";
+      const tag = document.createElement("span"); tag.className = "mq-answer-model"; tag.textContent = model;
+      const txt = document.createElement("span"); txt.className = "mq-answer-text";
+      txt.style.display = "flex"; txt.style.alignItems = "center";
+      if (!loaded.includes(model)) {
+        const _t0 = Date.now();
+        txt.innerHTML = '<span class="spinner"></span>lädt… 0s';
+        _loadTimer = setInterval(() => {
+          txt.innerHTML = '<span class="spinner"></span>lädt… ' + Math.floor((Date.now() - _t0) / 1000) + 's';
+        }, 1000);
+      } else {
+        txt.innerHTML = '<span class="spinner"></span>···';
+      }
+      answerEl.appendChild(tag); answerEl.appendChild(txt);
+
+      const detectorVal   = document.querySelector('input[name="mq-detector"]:checked')?.value || "none";
+      const mqDetCount    = document.getElementById("mq-det-count")?.value.trim() || ">0";
+      const mqDetResult   = document.getElementById("mq-det-result");
+      if (detectorVal !== "none") {
+        try {
+          const detBody = { detector: detectorVal, count_expr: mqDetCount };
+          if (mqImage.type === "alarm")   detBody.alarm_file   = mqImage.file;
+          if (mqImage.type === "capture") detBody.capture_file = mqImage.file;
+          const dr = await fetch(server() + "/detect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(detBody)
+          });
+          const dd = await dr.json();
+          if (_loadTimer) clearInterval(_loadTimer);
+          if (dd.error) {
+            if (mqDetResult) mqDetResult.textContent = "Fehler";
+            answerEl.className     = "mq-answer";
+            answerEl.style.display = "flex";
+            answerEl.innerHTML     = "";
+            const dtag = document.createElement("span"); dtag.className = "mq-answer-model"; dtag.textContent = detectorVal.toUpperCase();
+            const dtxt = document.createElement("span"); dtxt.className = "mq-answer-text";
+            dtxt.textContent = "Fehler: " + dd.error;
+            answerEl.appendChild(dtag); answerEl.appendChild(dtxt);
+            askBtn.disabled  = false;
+            askBtn.innerHTML = "→";
+            return;
+          }
+          const n = dd.count ?? 0;
+          if (mqDetResult) mqDetResult.textContent = n + " erkannt";
+          if (!dd.passed) {
+            answerEl.className     = "mq-answer";
+            answerEl.style.display = "flex";
+            answerEl.innerHTML     = "";
+            const dtag = document.createElement("span"); dtag.className = "mq-answer-model"; dtag.textContent = detectorVal.toUpperCase();
+            const dtxt = document.createElement("span"); dtxt.className = "mq-answer-text";
+            dtxt.textContent = n + " erkannt (" + mqDetCount + " ✗) – übersprungen";
+            answerEl.appendChild(dtag); answerEl.appendChild(dtxt);
+            askBtn.disabled  = false;
+            askBtn.innerHTML = "→";
+            return;
+          }
+        } catch (e) { if (mqDetResult) mqDetResult.textContent = "Fehler: " + e.message; }
+      } else {
+        if (mqDetResult) mqDetResult.textContent = "";
+      }
+
+      const body = { question, model };
+      if (mqImage.type === "alarm")   body.alarm_file   = mqImage.file;
+      if (mqImage.type === "capture") body.capture_file = mqImage.file;
+
+      try {
+        const resp = await fetch(server() + "/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        if (_loadTimer) clearInterval(_loadTimer);
+        const data   = await resp.json();
+        const answer = data.answer || (resp.status === 409
+          ? "Modell '" + model + "' nicht geladen"
+          : (data.error || "?"));
+        const matched = matchWord && mqMatchAnswer(matchWord, answer);
+        const hasErr  = !data.answer;
+
+        answerEl.className    = "mq-answer" + (matched ? " matched" : hasErr ? " errored" : "");
+        answerEl.style.display = "flex";
+        answerEl.innerHTML    = "";
+        const tag = document.createElement("span");
+        tag.className   = "mq-answer-model";
+        tag.textContent = data.model || model;
+        const txt = document.createElement("span");
+        txt.className   = "mq-answer-text";
+        txt.textContent = answer;
+        answerEl.appendChild(tag);
+        answerEl.appendChild(txt);
+
+        const childItems = Array.from(children.querySelectorAll(":scope > .mq-item"));
+        if (childItems.length) {
+          children.style.display = "flex";
+          children.style.flexDirection = "column";
+          for (const child of childItems) {
+            if (child._doAsk) await child._doAsk();
+          }
+        }
+      } catch (e) {
+        if (_loadTimer) clearInterval(_loadTimer);
+        answerEl.className     = "mq-answer errored";
+        answerEl.style.display = "flex";
+        answerEl.textContent   = "Fehler: " + e.message;
+      }
+
+      askBtn.disabled  = false;
+      askBtn.innerHTML = "→";
+    };
+
+    item._doAsk = doAsk;
+    askBtn.onclick = doAsk;
+    qInput.addEventListener("keydown", e => { if (e.key === "Enter") doAsk(); });
+
+    chain.appendChild(item);
+    qInput.focus();
+    return item;
+  }
   function formatDay(ts) {
     if (!ts) return "Unbekannt";
     const d = new Date(ts);
@@ -1040,20 +2041,52 @@
         const timeStr  = formatTime(alarm.timestamp);
         const question = alarm.question || "";
         const answer   = alarm.answer || "";
-        const safeFile = alarm.file.replace(/'/g, "");
+        const chain    = alarm.chain || [];
         const item     = document.createElement("div");
         item.className = "gallery-item";
-        item.innerHTML =
-          '<img src="' + url + '" loading="lazy" onclick="openLightbox(\'' + url + '\', \'' +
-            timeStr.replace(/'/g, "") + '\', \'' +
-            question.replace(/'/g, "").replace(/"/g, "") + '\', \'' +
-            answer.replace(/'/g, "").replace(/"/g, "") + '\', \'' +
-            alarm.file.replace(/'/g, "") + '\')">' +
-          '<div class="gallery-meta">' +
-            '<div class="gallery-time">' + timeStr + '</div>' +
-            (question ? '<div class="gallery-qa"><span class="qa-q">' + question + '</span> → <span class="qa-a">' + answer + '</span></div>' : '') +
-          '</div>' +
-          '<button class="del-overlay" onclick="deleteAlarm(\'' + alarm.file + '\', this)">×</button>';
+
+        const img = document.createElement("img");
+        img.src     = url;
+        img.loading = "lazy";
+        img.addEventListener("click", () =>
+          openLightbox(url, timeStr, question, answer, alarm.file));
+        item.appendChild(img);
+
+        const meta = document.createElement("div");
+        meta.className = "gallery-meta";
+        const timeEl = document.createElement("div");
+        timeEl.className = "gallery-time";
+        timeEl.textContent = timeStr;
+        meta.appendChild(timeEl);
+
+        const addQaRow = (q, a, color, indent) => {
+          const row = document.createElement("div");
+          row.className = "gallery-qa";
+          if (indent) row.style.marginLeft = indent + "px";
+          const qEl = document.createElement("span"); qEl.className = "qa-q"; qEl.textContent = q;
+          const sep = document.createTextNode(" → ");
+          const aEl = document.createElement("span"); aEl.className = "qa-a";
+          if (color) aEl.style.color = color;
+          aEl.textContent = a;
+          row.appendChild(qEl); row.appendChild(sep); row.appendChild(aEl);
+          meta.appendChild(row);
+        };
+
+        if (chain.length > 0) {
+          chain.forEach((c, i) => addQaRow(c.question, c.answer,
+            i === chain.length - 1 ? "var(--red)" : "var(--blue)", i * 8));
+        } else if (question) {
+          addQaRow(question, answer, null, 0);
+        }
+        (alarm.followups || []).forEach(f => addQaRow(f.question, f.answer, "var(--blue)", 0));
+        item.appendChild(meta);
+
+        const delBtn = document.createElement("button");
+        delBtn.className = "del-overlay";
+        delBtn.textContent = "×";
+        delBtn.addEventListener("click", () => deleteAlarm(alarm.file, delBtn));
+        item.appendChild(delBtn);
+
         return item;
       });
     } catch (e) {
@@ -1092,9 +2125,21 @@
         const timeStr = formatTime(capture._ts);
         const item    = document.createElement("div");
         item.className = "gallery-item";
-        item.innerHTML =
-          '<img src="' + url + '" loading="lazy" onclick="openLightbox(\'' + url + '\', \'' + timeStr + '\', \'\', \'\')">' +
-          '<div class="gallery-meta"><div class="gallery-time">' + timeStr + '</div></div>';
+
+        const img = document.createElement("img");
+        img.src     = url;
+        img.loading = "lazy";
+        img.addEventListener("click", () => openLightbox(url, timeStr, "", ""));
+        item.appendChild(img);
+
+        const meta = document.createElement("div");
+        meta.className = "gallery-meta";
+        const timeEl = document.createElement("div");
+        timeEl.className = "gallery-time";
+        timeEl.textContent = timeStr;
+        meta.appendChild(timeEl);
+        item.appendChild(meta);
+
         return item;
       });
     } catch (e) {
@@ -1149,8 +2194,7 @@
   function toggleLightboxFollowup() {
     document.getElementById("lightbox-followup").classList.toggle("visible");
     if (document.getElementById("lightbox-followup").classList.contains("visible")) {
-      document.getElementById("lightbox-input").focus();
-      document.getElementById("lightbox-followup").scrollIntoView({behavior:"smooth"});
+      setTimeout(() => document.getElementById("lightbox-input").focus(), 50);
     }
   }
 
@@ -1174,8 +2218,10 @@
         body: JSON.stringify(body)
       });
       const data = await r.json();
+      const answer = data.answer || data.error || "?";
       chip.className = "lb-chip";
-      chip.querySelector(".aa").textContent = data.answer || data.error || "?";
+      chip.querySelector(".aa").textContent = answer;
+      if (lightboxFile) loadAlarms();
     } catch (e) {
       chip.className = "lb-chip";
       chip.querySelector(".aa").textContent = "Fehler";
